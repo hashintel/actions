@@ -1,0 +1,81 @@
+# Enforce Linear issue ID in PR titles
+#
+# Reusable workflow that fails when a PR title doesn't include a Linear issue
+# ID (e.g. `H-1234`, `BE-5678`, `SRE-708`) in the prefix segment — the text
+# before the first ":". Mirrors the prefix-parsing convention already used by
+# `preflight-todo-comments.yml`, so the same IDs power both checks.
+#
+# Exempt are `dependabot[bot]`, the account that opens renovate PRs, and the one
+# changesets opens the release PR as. Any other account — including other bots
+# and GitHub Apps such as Claude — must reference a Linear issue ID.
+name: PR Title
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, edited]
+    paths:
+      - ".github/workflows/preflight-pr-title.yml"
+  pull_request_target:
+    types: [opened, synchronize, reopened, edited]
+  merge_group:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: Linear Issue ID
+    runs-on: ubuntu-24.04
+    if: (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') && !contains(fromJSON('["dependabot[bot]", "hash-dependencies[bot]", "hash-release[bot]"]'), github.event.pull_request.user.login)
+    steps:
+      - name: Validate PR title contains Linear issue ID
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          echo "PR title: $PR_TITLE"
+
+          # Match prefix-parsing in preflight-todo-comments.yml so the same
+          # IDs are picked up by both checks.
+          PREFIX=$(echo "$PR_TITLE" | cut -d':' -f1)
+
+          TICKETS=$(echo "$PREFIX" \
+            | grep -oiE '[A-Z]+-[0-9]+' \
+            | tr '[:lower:]' '[:upper:]' \
+            | sort -u \
+            | tr '\n' ' ')
+
+          if [[ -z "$TICKETS" ]]; then
+            echo "::error::PR title is missing a Linear issue ID."
+            {
+              echo "## ❌ Missing Linear issue ID in PR title"
+              echo
+              echo "Current title:"
+              echo
+              echo "> \`$PR_TITLE\`"
+              echo
+              echo "Every PR must reference at least one Linear issue."
+              echo "Include the issue ID (e.g. \`H-1234\`, \`BE-5678\`, \`SRE-708\`) in the"
+              echo "prefix of the title — the segment before the first \`:\`. Multiple IDs"
+              echo "may be combined."
+              echo
+              echo "**Examples**"
+              echo
+              echo "- \`H-1234: Add support for X\`"
+              echo "- \`SRE-708, SRE-709: Disable autocreation of dependency PRs\`"
+              echo "- \`feat(H-1234): Add support for X\`"
+              echo
+              echo "Only \`dependabot[bot]\`, \`hash-dependencies[bot]\` (renovate) and"
+              echo "\`hash-release[bot]\` (changesets) are exempt;"
+              echo "all other PRs — including bot-authored ones (e.g. Claude) — must"
+              echo "reference a Linear issue ID."
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+
+          echo "::notice::Found Linear issue IDs: $TICKETS"
+          {
+            echo "## ✅ Linear issue ID found"
+            echo
+            echo "Detected ticket IDs in PR title prefix: \`$TICKETS\`"
+          } >> "$GITHUB_STEP_SUMMARY"

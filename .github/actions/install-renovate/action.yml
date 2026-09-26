@@ -1,0 +1,30 @@
+name: Install Renovate
+description: Put a centrally pinned Renovate on PATH, including its config validator.
+
+# The version lives in this directory's package-lock.json, which Renovate keeps
+# up to date itself. `$/` materialises this directory at the running commit, so
+# a caller in another repository gets the same pin without a checkout.
+runs:
+  using: composite
+  steps:
+    - name: Setup Node.js
+      uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      with:
+        node-version: 24
+
+    # `npm ci` resolves nothing at runtime, so a package published after the
+    # lockfile was written cannot enter the tree. Renovate treats `re2` as
+    # optional and falls back to native RegExp when the native build is missing.
+    - name: Install
+      shell: bash
+      working-directory: ${{ github.action_path }}
+      run: |
+        npm ci --ignore-scripts --no-audit --no-fund
+        echo "${PWD}/node_modules/.bin" >>"${GITHUB_PATH}"
+
+    # The image's Yarn 1 cannot write a Yarn 4 lockfile, so Renovate falls back
+    # to a `package.json`-only pull request. Corepack runs the version each
+    # repository's `packageManager` pins; shimming `yarn` alone spares `npm ci`.
+    - name: Enable Corepack
+      shell: bash
+      run: corepack enable yarn

@@ -1,0 +1,5 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["github>hashintel/actions:renovate-config"],
+  "description": "Renovate configuration for hashintel/actions, which hosts the shared preset it extends"
+}

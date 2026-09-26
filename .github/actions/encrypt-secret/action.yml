@@ -1,0 +1,32 @@
+name: Encrypt secret
+description: >-
+  Encrypt a value so it can cross a job boundary. GitHub silently drops masked
+  plaintext from job outputs; ciphertext survives the trip and is useless
+  without the key.
+
+inputs:
+  value:
+    description: Plaintext to encrypt. Must never be echoed.
+    required: true
+  encryption_key:
+    description: Symmetric passphrase shared with the decrypting job.
+    required: true
+
+outputs:
+  encrypted_value:
+    description: Base64 ciphertext, safe to expose as a job output.
+    value: ${{ steps.encrypt.outputs.encrypted_value }}
+
+runs:
+  using: composite
+  steps:
+    - name: Encrypt
+      id: encrypt
+      shell: bash
+      env:
+        VALUE: ${{ inputs.value }}
+        ENC_KEY: ${{ inputs.encryption_key }}
+      run: |
+        : "${VALUE:?}" "${ENC_KEY:?}"
+        encrypted=$(printf '%s' "${VALUE}" | openssl enc -aes-256-cbc -pbkdf2 -salt -pass env:ENC_KEY -base64 -A)
+        echo "encrypted_value=${encrypted}" >>"${GITHUB_OUTPUT}"

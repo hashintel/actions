@@ -1,0 +1,199 @@
+# Centralized Renovate workflow
+#
+# Reusable workflow that runs Renovate with a centrally pinned version, and with
+# an installation token minted from a key that only Vault can use.
+#
+# Minting and running are separate jobs. Only the mint job holds
+# `id-token: write`, and it installs nothing, so dependency code in the
+# Renovate job cannot reach Vault to sign fresh App JWTs. The token crosses
+# the job boundary encrypted: GitHub drops masked values from job outputs, so
+# the plaintext could not make the trip anyway, and the ciphertext is useless
+# without `RENOVATE_TOKEN_ENC_KEY`.
+name: Update dependencies
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/housekeeping-dependencies.yml"
+      - ".github/actions/install-renovate/**"
+      - ".github/actions/github-app-token/**"
+      - ".github/actions/encrypt-secret/**"
+      - ".github/actions/decrypt-secret/**"
+  schedule:
+    - cron: "0 */2 * * *"
+  workflow_dispatch:
+    inputs:
+      repoCache:
+        description: "Reset or disable the cache?"
+        type: choice
+        default: enabled
+        options:
+          - enabled
+          - disabled
+          - reset
+      logLevel:
+        description: "Override default log level"
+        type: choice
+        default: info
+        options:
+          - "debug"
+          - "info"
+          - "warn"
+          - "error"
+      overrideSchedule:
+        description: "Override all schedules"
+        type: boolean
+        default: false
+      dryRun:
+        description: "Dry run mode"
+        type: choice
+        default: disabled
+        options:
+          - disabled
+          - extract
+          - lookup
+          - full
+  workflow_call:
+    inputs:
+      repoCache:
+        description: "Reset or disable the cache?"
+        type: string
+        default: enabled
+      logLevel:
+        description: "Override default log level"
+        type: string
+        default: info
+      overrideSchedule:
+        description: "Override all schedules"
+        type: boolean
+        default: false
+      dryRun:
+        description: "Dry run mode"
+        type: string
+        default: disabled
+    secrets:
+      CF_ACCESS_STAGE_CLIENT_SECRET:
+        description: >-
+          Cloudflare Access service token for the staging Vault. A called workflow
+          does not inherit secrets the way it resolves `vars`, so each caller
+          passes this explicitly, and one that omits it fails at dispatch rather
+          than on a Cloudflare rejection.
+        required: true
+      RENOVATE_TOKEN_ENC_KEY:
+        description: >-
+          Symmetric passphrase that carries the installation token between the
+          two jobs as ciphertext. Same passing rules as above: each caller
+          passes it explicitly, and one that omits it fails at dispatch.
+        required: true
+
+permissions: {}
+
+jobs:
+  mint-token:
+    name: Mint token
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      id-token: write
+    # Shares the renovate group so the hour-long token is minted only once the
+    # run can proceed, not while queued behind a still-running Renovate job.
+    concurrency:
+      cancel-in-progress: false
+      group: renovate
+    outputs:
+      token-ciphertext: ${{ steps.encrypt.outputs.encrypted_value }}
+
+    steps:
+      - name: Get token
+        id: app-token
+        uses: $/.github/actions/github-app-token
+        with:
+          vault-address: ${{ vars.VAULT_STAGE_ADDR }}
+          vault-role: ci-renovate
+          app-id: "4505109"
+          transit-key: github-app-hash-dependencies
+          repository: ${{ github.repository }}
+          cf-access-client-id: ${{ vars.CF_ACCESS_STAGE_CLIENT_ID }}
+          cf-access-client-secret: ${{ secrets.CF_ACCESS_STAGE_CLIENT_SECRET }}
+
+      # The token is already masked, and GitHub silently drops masked values
+      # from job outputs, so only ciphertext can cross the job boundary.
+      - name: Encrypt token
+        id: encrypt
+        uses: $/.github/actions/encrypt-secret
+        with:
+          value: ${{ steps.app-token.outputs.token }}
+          encryption_key: ${{ secrets.RENOVATE_TOKEN_ENC_KEY }}
+
+  renovate:
+    name: Renovate
+    runs-on: ubuntu-24.04
+    needs: mint-token
+    # No `id-token` here: compromised dependency code in this job gets at most
+    # the hour-long installation token scoped to the calling repository.
+    permissions:
+      actions: read
+      contents: read
+    concurrency:
+      cancel-in-progress: false
+      group: renovate
+    env:
+      is_pr: ${{ github.event_name == 'pull_request' }}
+      dry_run: ${{ github.event_name == 'pull_request' && 'extract' || inputs.dryRun || 'disabled' }}
+      repo_cache: ${{ inputs.repoCache || 'enabled' }}
+
+    steps:
+      # First step, so the plaintext is masked before anything else runs.
+      - name: Decrypt token
+        id: app-token
+        uses: $/.github/actions/decrypt-secret
+        with:
+          encrypted_value: ${{ needs.mint-token.outputs.token-ciphertext }}
+          encryption_key: ${{ secrets.RENOVATE_TOKEN_ENC_KEY }}
+
+      - name: Install Renovate
+        uses: $/.github/actions/install-renovate
+
+      - name: Download renovate cache
+        uses: dawidd6/action-download-artifact@57aa996fc1713cc1579039614f4645a7f4841fd4 # v23
+        if: env.is_pr != 'true' && env.repo_cache != 'disabled'
+        continue-on-error: true
+        with:
+          name: renovate-cache
+          path: cache-download
+
+      - name: Extract renovate cache
+        if: env.is_pr != 'true' && env.repo_cache != 'disabled'
+        run: |
+          if [ ! -d cache-download ]; then
+            echo "No cache found."
+            exit 0
+          fi
+
+          mkdir -p /tmp/renovate/cache/renovate/repository
+          tar -xzf cache-download/renovate_cache.tar.gz -C /tmp/renovate/cache/renovate/repository
+
+      - name: Run Renovate
+        env:
+          LOG_LEVEL: ${{ inputs.logLevel || 'info' }}
+          RENOVATE_TOKEN: ${{ steps.app-token.outputs.value }}
+          RENOVATE_FORCE: ${{ inputs.overrideSchedule && '{"schedule":null}' || '' }}
+          RENOVATE_DRY_RUN: ${{ env.dry_run == 'disabled' && 'null' || env.dry_run }}
+          RENOVATE_PLATFORM_COMMIT: enabled
+          RENOVATE_REPOSITORIES: ${{ github.repository }}
+          RENOVATE_REPOSITORY_CACHE: ${{ env.repo_cache }}
+          RENOVATE_ALLOW_SCRIPTS: "false"
+          RENOVATE_IGNORE_SCRIPTS: "true"
+        run: renovate
+
+      - name: Compress renovate cache
+        if: env.is_pr != 'true' && env.dry_run == 'disabled' && env.repo_cache != 'disabled'
+        run: tar -czvf renovate_cache.tar.gz -C /tmp/renovate/cache/renovate/repository .
+
+      - name: Upload renovate cache
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: env.is_pr != 'true' && env.dry_run == 'disabled' && env.repo_cache != 'disabled'
+        with:
+          name: renovate-cache
+          path: renovate_cache.tar.gz
+          retention-days: 1
