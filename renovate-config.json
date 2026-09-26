@@ -46,7 +46,7 @@
     {
       "description": "Automatically bump the org's own reusable-workflow pins without dashboard approval",
       "matchManagers": ["github-actions"],
-      "matchPackageNames": ["hashintel/.github", "hashintel/actions"],
+      "matchPackageNames": ["hashintel/actions"],
       "matchUpdateTypes": ["digest"],
       "dependencyDashboardApproval": false,
       "minimumReleaseAge": "0 days",
