@@ -15,5 +15,3 @@ jobs:
   actionlint:
     uses: hashintel/actions/.github/workflows/preflight-actionlint.yml@<commit-sha> # main
 ```
-
-The composite actions are called by these workflows through `$/`, so they run at the same commit as the calling workflow.
