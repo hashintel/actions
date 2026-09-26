@@ -1,0 +1,452 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended", "customManagers:githubActionsVersions"],
+  "description": "HASH base Renovate configuration for global use",
+  "ignorePaths": [
+    "**/node_modules/**",
+    "**/bower_components/**",
+    "**/vendor/**",
+    "**/target/**",
+    "**/dist/**"
+  ],
+  "hostRules": [
+    {
+      "matchHost": "api.github.com",
+      "maxRetryAfter": 30
+    }
+  ],
+  "automerge": true,
+  "branchPrefix": "deps/",
+  "configMigration": true,
+  "dependencyDashboard": true,
+  "dependencyDashboardApproval": true,
+  "dependencyDashboardTitle": "🚀 Dependency Updates",
+  "minimumReleaseAge": "14 days",
+  "postUpdateOptions": ["yarnDedupeHighest"],
+  "rebaseWhen": "conflicted",
+  "semanticCommits": "disabled",
+  "schedule": ["before 4am every weekday", "every weekend"],
+  "automergeSchedule": ["before 4am every weekday", "every weekend"],
+  "assigneesFromCodeOwners": true,
+  "prConcurrentLimit": 25,
+  "branchConcurrentLimit": 0,
+  "packageRules": [
+    {
+      "extends": ["packages:linters", "packages:test"],
+      "assignees": ["TimDiekmann", "indietyp"]
+    },
+    {
+      "matchManagers": ["github-actions"],
+      "commitMessageTopic": "GitHub Action `{{depName}}`",
+      "additionalBranchPrefix": "gha/",
+      "pinDigests": true,
+      "assignees": ["TimDiekmann", "indietyp"],
+      "schedule": ["before 2am on saturday"]
+    },
+    {
+      "description": "Automatically bump the org's own reusable-workflow pins without dashboard approval",
+      "matchManagers": ["github-actions"],
+      "matchPackageNames": ["hashintel/.github", "hashintel/actions"],
+      "matchUpdateTypes": ["digest"],
+      "dependencyDashboardApproval": false,
+      "minimumReleaseAge": "0 days",
+      "schedule": ["at any time"]
+    },
+    {
+      "matchManagers": ["docker-compose", "dockerfile"],
+      "commitMessageTopic": "Docker tag `{{depName}}`",
+      "additionalBranchPrefix": "docker/",
+      "assignees": ["TimDiekmann", "indietyp"]
+    },
+    {
+      "matchManagers": ["npm"],
+      "commitMessageTopic": "npm package `{{depName}}`",
+      "additionalBranchPrefix": "js/",
+      "assignees": ["CiaranMn"]
+    },
+    {
+      "matchManagers": ["cargo"],
+      "commitMessageTopic": "Rust crate `{{depName}}`",
+      "additionalBranchPrefix": "rs/",
+      "reviewers": ["team:Rust"],
+      "assignees": ["TimDiekmann", "indietyp"]
+    },
+    {
+      "matchManagers": ["mise"],
+      "commitMessageTopic": "tool `{{depName}}`",
+      "additionalBranchPrefix": "tool/",
+      "assignees": ["TimDiekmann", "indietyp"]
+    },
+    {
+      "description": "Terraform providers",
+      "matchManagers": ["terraform"],
+      "matchDepTypes": ["provider"],
+      "additionalBranchPrefix": "tf/",
+      "commitMessageTopic": "Terraform provider `{{depName}}`",
+      "assignees": ["TimDiekmann"]
+    },
+    {
+      "description": "Don't auto-bump terraform required_version (controlled via mise)",
+      "matchManagers": ["terraform"],
+      "matchDepTypes": ["required_version"],
+      "enabled": false
+    },
+    {
+      "description": "TFLint plugins",
+      "matchManagers": ["tflint-plugin"],
+      "additionalBranchPrefix": "tflint/",
+      "commitMessageTopic": "TFLint plugin `{{depName}}`",
+      "assignees": ["TimDiekmann"]
+    },
+    {
+      "matchDepTypes": ["devDependencies"],
+      "assignees": ["TimDiekmann", "indietyp"],
+      "matchPackageNames": [
+        "/^@vitest//",
+        "/^vite-/",
+        "/vitest$/",
+        "/lint-staged/",
+        "/markdownlint-cli2/",
+        "/^prettier/",
+        "/prettier$/",
+        "/^@biomejs/",
+        "/rimraf/",
+        "/turbo/",
+        "/yarn-deduplicate/",
+        "/@redocly/cli/",
+        "!/@effect/vitest/"
+      ]
+    },
+    {
+      "groupName": "`Rudderstack` Docker images",
+      "matchManagers": ["docker-compose"],
+      "matchPackageNames": ["/^rudderlabs//"]
+    },
+    {
+      "groupName": "`Pino` npm packages",
+      "matchManagers": ["npm"],
+      "matchPackageNames": ["/^pino/", "/^pino-/"]
+    },
+    {
+      "groupName": "`artillery` npm packages",
+      "matchManagers": ["npm"],
+      "automerge": false,
+      "matchPackageNames": [
+        "/^@artilleryio//",
+        "/^artillery$/",
+        "/^artillery-/"
+      ]
+    },
+    {
+      "groupName": "LLM provider SDK npm packages",
+      "matchManagers": ["npm"],
+      "automerge": false,
+      "matchPackageNames": ["/^@openai//", "/^@anthropic-ai//", "/groq-sdk/"]
+    },
+    {
+      "groupName": "`katex` npm packages",
+      "matchManagers": ["npm"],
+      "matchPackageNames": ["/@matejmazur/react-katex/", "/^katex/"]
+    },
+    {
+      "groupName": "`ory` npm packages",
+      "matchManagers": ["npm"],
+      "matchPackageNames": ["/^@ory//"]
+    },
+    {
+      "groupName": "`mastra` npm packages",
+      "matchManagers": ["npm"],
+      "matchPackageNames": ["/^@mastra//", "/^mastra$/"]
+    },
+    {
+      "groupName": "`rollup` npm packages",
+      "matchManagers": ["npm"],
+      "matchPackageNames": ["/^@rollup//", "/^rollup$/"]
+    },
+    {
+      "groupName": "`sigma` npm packages",
+      "matchManagers": ["npm"],
+      "matchPackageNames": ["/^@sigma/", "/sigma$/"]
+    },
+    {
+      "groupName": "`libp2p` npm packages",
+      "matchManagers": ["npm"],
+      "matchPackageNames": ["/^@libp2p/", "/libp2p$/"]
+    },
+    {
+      "groupName": "`signia` npm packages",
+      "matchManagers": ["npm"],
+      "matchPackageNames": ["/^signia/", "/signia$/"]
+    },
+    {
+      "groupName": "HASH `blockprotocol` npm packages",
+      "matchManagers": ["npm"],
+      "matchPackageNames": [
+        "/^@blockprotocol//",
+        "/^block-/",
+        "/^blockprotocol$/",
+        "/^create-block-app$/",
+        "/^mock-block-dock$/"
+      ]
+    },
+    {
+      "groupName": "`eslint` npm packages",
+      "matchManagers": ["npm"],
+      "matchPackageNames": [
+        "/^@types/eslint/",
+        "/^@typescript-eslint//",
+        "/^eslint-/",
+        "/eslint$/"
+      ]
+    },
+    {
+      "groupName": "`effect` npm packages",
+      "matchManagers": ["npm"],
+      "matchPackageNames": [
+        "/^@effect//",
+        "/^effect-/",
+        "/effect$/",
+        "!/@effect/vitest/"
+      ]
+    },
+    {
+      "groupName": "`graphql` npm packages",
+      "matchManagers": ["npm"],
+      "matchPackageNames": ["/^@graphql//", "/^graphql-/", "/graphql$/"]
+    },
+    {
+      "groupName": "`@react-three` npm packages",
+      "matchManagers": ["npm"],
+      "matchPackageNames": ["/^@react-three//"]
+    },
+    {
+      "description": "Exclude `tldraw` from updates due to non-OSS license in later releases",
+      "matchManagers": ["npm"],
+      "enabled": false,
+      "matchPackageNames": ["/^@tldraw//"]
+    },
+    {
+      "automerge": false,
+      "matchManagers": ["npm"],
+      "assignees": ["CiaranMn"],
+      "matchPackageNames": ["/typescript/"]
+    },
+    {
+      "groupName": "`vitest` npm packages",
+      "matchManagers": ["npm"],
+      "matchPackageNames": ["/^@vitest//", "/^vitest/", "/^vite-/", "/vitest$/"]
+    },
+    {
+      "groupName": "`emoji-mart` npm packages",
+      "matchManagers": ["npm"],
+      "matchPackageNames": ["/^@emoji-mart//", "/^emoji-mart/", "/emoji-mart$/"]
+    },
+    {
+      "groupName": "`lodash` npm packages",
+      "matchManagers": ["npm"],
+      "matchPackageNames": ["/^@types/lodash/", "/^lodash/", "/lodash$/"]
+    },
+    {
+      "groupName": "`opentelemetry` npm packages",
+      "matchManagers": ["npm"],
+      "assignees": ["TimDiekmann"],
+      "matchPackageNames": ["/^@opentelemetry//"]
+    },
+    {
+      "groupName": "`changesets` npm packages",
+      "matchManagers": ["npm"],
+      "matchPackageNames": ["/^@changesets//"]
+    },
+    {
+      "groupName": "`playwright` npm packages",
+      "matchManagers": ["npm"],
+      "assignees": ["CiaranMn"],
+      "matchPackageNames": ["/^@playwright//", "/^playwright/", "/playwright$/"]
+    },
+    {
+      "groupName": "`jest` npm packages",
+      "matchManagers": ["npm"],
+      "assignees": ["CiaranMn"],
+      "matchPackageNames": [
+        "/^@types/jest$/",
+        "/^jest/",
+        "/^ts-jest$/",
+        "/^jest-/"
+      ]
+    },
+    {
+      "groupName": "`biome` npm packages",
+      "matchManagers": ["npm"],
+      "matchPackageNames": ["/^@biomejs/"]
+    },
+    {
+      "groupName": "`express` npm packages",
+      "matchManagers": ["npm"],
+      "matchPackageNames": ["/^@types/express$/", "/^express/", "/^express-/"]
+    },
+    {
+      "groupName": "`prosemirror` npm packages",
+      "matchManagers": ["npm"],
+      "matchPackageNames": ["/^prosemirror/", "/prosemirror$/"]
+    },
+    {
+      "groupName": "`sentry` npm packages",
+      "matchManagers": ["npm"],
+      "assignees": ["TimDiekmann", "CiaranMn"],
+      "matchPackageNames": ["/^@sentry//"]
+    },
+    {
+      "groupName": "`signia` npm packages",
+      "matchManagers": ["npm"],
+      "matchPackageNames": ["/^@signia//"]
+    },
+    {
+      "matchManagers": ["custom.regex", "rust-toolchain"],
+      "matchDepNames": ["rust", "/(R|r)ust(-.+)?/"],
+      "separateMajorMinor": false,
+      "commitMessageExtra": "to {{newVersion}}",
+      "additionalBranchPrefix": "rs/",
+      "groupName": "Rust toolchains",
+      "commitMessageTopic": "Rust toolchains",
+      "reviewers": ["team:infra"],
+      "dependencyDashboardApproval": false,
+      "schedule": ["* 1-4 * * 6"],
+      "assignees": ["TimDiekmann", "indietyp"],
+      "minimumReleaseAge": "0 days"
+    },
+    {
+      "matchManagers": ["cargo"],
+      "groupName": "`cedar-policy` Rust crates",
+      "matchPackageNames": ["/^cedar-policy[-_]?/"]
+    },
+    {
+      "matchManagers": ["cargo"],
+      "groupName": "`clap` Rust crates",
+      "matchPackageNames": ["/^clap[-_]?/"]
+    },
+    {
+      "matchManagers": ["cargo"],
+      "groupName": "`anstyle` Rust crates",
+      "matchPackageNames": ["anstream", "colorchoice-clap", "/^anstyle[-_]?/"]
+    },
+    {
+      "matchManagers": ["cargo"],
+      "groupName": "`dashu` Rust crates",
+      "matchPackageNames": ["/^dashu[-_]?/"]
+    },
+    {
+      "matchManagers": ["cargo"],
+      "groupName": "`frunk` Rust crates",
+      "matchPackageNames": ["/^frunk[-_]?/"]
+    },
+    {
+      "matchManagers": ["cargo"],
+      "groupName": "`indicatif` Rust crates",
+      "matchPackageNames": ["/^indicatif[-_]?/", "/-indicatif$/"]
+    },
+    {
+      "matchManagers": ["cargo"],
+      "groupName": "`napi` Rust crates",
+      "matchPackageNames": ["/^napi[-_]?/"]
+    },
+    {
+      "matchManagers": ["cargo"],
+      "groupName": "`tower` Rust crates",
+      "matchPackageNames": ["/^tower[-_]?/"]
+    },
+    {
+      "matchManagers": ["cargo"],
+      "groupName": "`criterion` Rust crates",
+      "matchPackageNames": ["/^criterion[-_]?/"]
+    },
+    {
+      "matchManagers": ["cargo"],
+      "groupName": "`futures` Rust crates",
+      "matchPackageNames": ["/^futures[-_]?/"]
+    },
+    {
+      "matchManagers": ["cargo"],
+      "groupName": "`opentelemetry` Rust crates",
+      "matchPackageNames": [
+        "/^opentelemetry[-_]?/",
+        "/^tracing-opentelemetry$/"
+      ]
+    },
+    {
+      "matchManagers": ["cargo"],
+      "groupName": "`postgres` Rust crates",
+      "matchPackageNames": ["/^postgres[-_]?/", "/^tokio-postgres[-_]?/"]
+    },
+    {
+      "matchManagers": ["cargo"],
+      "groupName": "`serde` Rust crates",
+      "matchPackageNames": ["/^serde[-_]?/"]
+    },
+    {
+      "matchManagers": ["cargo"],
+      "groupName": "`tracing` Rust crates",
+      "matchPackageNames": ["/^tracing[-_]?/", "!tracing-opentelemetry"]
+    },
+    {
+      "matchManagers": ["cargo"],
+      "groupName": "`libp2p` Rust crates",
+      "matchPackageNames": ["/^libp2p[-_]?/"]
+    },
+    {
+      "matchManagers": ["cargo"],
+      "groupName": "`Temporal` Rust crates",
+      "matchPackageNames": ["/^temporalio[-_]?/"]
+    },
+    {
+      "matchManagers": ["cargo"],
+      "groupName": "`nextest` Rust crates",
+      "matchPackageNames": ["/^nextest[-_]?/"]
+    },
+    {
+      "matchManagers": ["cargo"],
+      "groupName": "`rand` Rust crates",
+      "matchPackageNames": ["/^rand[-_]?/"]
+    },
+    {
+      "matchManagers": ["cargo"],
+      "groupName": "`reqwest` Rust crates",
+      "matchPackageNames": ["/^reqwest[-_]?/"]
+    },
+    {
+      "matchManagers": ["cargo"],
+      "groupName": "`deadpool` Rust crates",
+      "matchPackageNames": ["/^deadpool[-_]?/"]
+    }
+  ],
+  "customManagers": [
+    {
+      "customType": "regex",
+      "fileMatch": ["(^|/)README\\.md$", "(^|/)src/lib\\.rs$"],
+      "matchStrings": [
+        "https:\\/\\/img\\.shields\\.io\\/static\\/v1\\?label=Rust\\&message=\\d+\\.\\d+\\.\\d+\\/(?<currentValue>nightly-\\d+-\\d+-\\d+)\\&color=blue"
+      ],
+      "depNameTemplate": "rust",
+      "datasourceTemplate": "rust-version",
+      "versioningTemplate": "rust-release-channel"
+    },
+    {
+      "customType": "regex",
+      "description": "Keep the `rust` entry in the mise lockfile in sync with `rust-toolchain.toml`. The mise manager cannot do this itself because the Rust toolchain enters mise through the idiomatic version file, not through the mise config.",
+      "managerFilePatterns": ["/(^|/)\\.config/mise/mise\\.lock$/"],
+      "matchStrings": [
+        "\\[\\[tools\\.rust\\]\\]\\nversion = \"(?<currentValue>nightly-\\d+-\\d+-\\d+)\""
+      ],
+      "depNameTemplate": "rust",
+      "datasourceTemplate": "rust-version",
+      "versioningTemplate": "rust-release-channel"
+    },
+    {
+      "customType": "regex",
+      "fileMatch": ["(^|/)\\.github/workflows/[^/]+\\.ya?ml$"],
+      "matchStrings": [
+        "go run (?<depName>[^\\s@]+)/cmd/[^\\s@]+@(?<currentValue>v\\d+\\.\\d+\\.\\d+)"
+      ],
+      "datasourceTemplate": "go"
+    }
+  ]
+}

@@ -1,0 +1,33 @@
+# Lint GitHub Actions workflows
+#
+# Reusable workflow that runs actionlint over the calling repository's
+# workflow files, with the actionlint version pinned centrally.
+name: Lint
+
+on:
+  pull_request:
+  merge_group:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    name: Actions
+    runs-on: ubuntu-24.04
+    # The default checkout resolves to the PR merge commit or the merge-group
+    # ref; any other calling event would silently lint the base branch.
+    if: github.event_name == 'pull_request' || github.event_name == 'merge_group'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # TODO(SRE-941): drop the -ignore flags once actionlint knows `$/`
+      # (rhysd/actionlint#711) and `concurrency.queue` (rhysd/actionlint#654)
+      - name: Actionlint
+        run: >-
+          go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
+          -ignore 'specifying action "\$/.+" in invalid format because ref is missing'
+          -ignore 'reusable workflow call "\$/.+" at "uses" is not following the format'
+          -ignore 'unexpected key "queue" for "concurrency" section'

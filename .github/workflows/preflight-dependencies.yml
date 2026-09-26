@@ -1,0 +1,54 @@
+# Dependency Review Action
+#
+# This Action will scan dependency manifest files that change as part of a Pull Request,
+# surfacing known-vulnerable versions of the packages declared or updated in the PR.
+# Once installed, if the workflow run is marked as required, PRs introducing
+# known-vulnerable packages will be blocked from merging.
+#
+# Callers may allowlist individual advisories via the `allow-ghsas` input. This
+# is intended for advisories whose GitHub Advisory Database entry is wrong (e.g.
+# a backported fix missing from the affected version range), not for accepting
+# known risk — pair every entry with a comment naming the correction PR filed
+# against https://github.com/github/advisory-database and drop it once merged.
+#
+# Source repository: https://github.com/actions/dependency-review-action
+# Public documentation: https://docs.github.com/en/code-security/supply-chain-security/understanding-your-software-supply-chain/about-dependency-review#dependency-review-enforcement
+name: Dependencies
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/preflight-dependencies.yml"
+  pull_request_target:
+  merge_group:
+  workflow_call:
+    inputs:
+      allow-ghsas:
+        description: 'Comma-separated list of GitHub Advisory IDs to ignore (e.g. "GHSA-abcd-1234-5679, GHSA-efgh-1234-5679")'
+        type: string
+        default: ""
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  review:
+    name: Review
+    # dependency-review-action requires GitHub Advanced Security on private repos
+    # TODO(SRE-620): Remove once GHAS is enabled for private repos
+    if: github.event.repository.visibility == 'public'
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Dependency Review
+        uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0
+        with:
+          comment-summary-in-pr: on-failure
+          show-patched-versions: true
+          # Empty on this workflow's own triggers and for callers that don't set
+          # it; the action treats an empty input as unset, so the check stays
+          # fully enforcing by default.
+          allow-ghsas: ${{ inputs.allow-ghsas }}

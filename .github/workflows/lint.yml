@@ -1,0 +1,49 @@
+name: Lint
+
+on:
+  pull_request:
+  merge_group:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  shell:
+    name: Validate shell scripts
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Shellcheck
+        run: git ls-files -z '*.sh' | xargs -0 --no-run-if-empty shellcheck
+
+  renovate:
+    name: Validate renovate config
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Install Renovate
+        uses: $/.github/actions/install-renovate
+
+      - name: Validate renovate config
+        run: |
+          # Without arguments the validator only checks this repo's own config
+          # (`renovate.json`). The shared preset `renovate-config.json`, which
+          # other repos extend via `github>hashintel/actions:renovate-config`,
+          # is not a default config file name and must be validated explicitly.
+          if ! renovate-config-validator || ! renovate-config-validator renovate-config.json; then
+            echo ''
+            echo ''
+            echo 'ℹ️ ℹ️ ℹ️'
+            echo 'Please fix the above errors locally for the check to pass.'
+            echo 'If you do not see them, try merging target branch into yours.'
+            echo 'ℹ️ ℹ️ ℹ️'
+            exit 1
+          fi

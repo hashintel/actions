@@ -1,0 +1,43 @@
+name: Decrypt secret
+description: >-
+  Decrypt a value produced by encrypt-secret, masking the plaintext before
+  anything else can read it. Run this before any step that executes code you
+  do not control.
+
+inputs:
+  encrypted_value:
+    description: Base64 ciphertext from encrypt-secret.
+    required: true
+  encryption_key:
+    description: Symmetric passphrase shared with the encrypting job.
+    required: true
+
+outputs:
+  value:
+    description: Decrypted plaintext, masked in logs.
+    value: ${{ steps.decrypt.outputs.value }}
+
+runs:
+  using: composite
+  steps:
+    - name: Decrypt
+      id: decrypt
+      shell: bash
+      env:
+        ENCRYPTED_VALUE: ${{ inputs.encrypted_value }}
+        ENC_KEY: ${{ inputs.encryption_key }}
+      run: |
+        : "${ENCRYPTED_VALUE:?}" "${ENC_KEY:?}"
+        value=$(printf '%s' "${ENCRYPTED_VALUE}" | openssl enc -d -aes-256-cbc -pbkdf2 -pass env:ENC_KEY -base64 -A)
+        # Masking is per line, so a multi-line value needs each line masked.
+        while IFS= read -r line; do
+          if [ -n "${line}" ]; then
+            echo "::add-mask::${line}"
+          fi
+        done <<<"${value}"
+        delimiter=$(openssl rand -hex 16)
+        {
+          echo "value<<${delimiter}"
+          echo "${value}"
+          echo "${delimiter}"
+        } >>"${GITHUB_OUTPUT}"

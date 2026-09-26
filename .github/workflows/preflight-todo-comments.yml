@@ -1,0 +1,138 @@
+# Check TODO Linear Tickets
+#
+# Searches for TODO comments in the codebase that reference Linear ticket IDs
+# found in the PR title. Fails if any are found, as they should be resolved
+# before the associated ticket is marked as done.
+name: Todo Comments
+
+on:
+  pull_request:
+    # `edited` matters: the scan derives its ticket IDs from the PR title.
+    types: [opened, synchronize, reopened, edited]
+  merge_group:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  scan:
+    name: Scan
+    runs-on: ubuntu-24.04
+    timeout-minutes: 3
+    if: github.event_name == 'pull_request'
+    steps:
+      - name: Checkout PR head
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Install ripgrep
+        env:
+          GH_TOKEN: ${{ github.token }}
+          # renovate: datasource=github-releases depName=BurntSushi/ripgrep
+          RIPGREP_VERSION: 15.2.0
+          # Update alongside RIPGREP_VERSION — Renovate bumps the version but
+          # cannot maintain this hash, so version bumps fail until it is updated.
+          RIPGREP_SHA256: 33e15bcf1624b25cdd2a55813a47a2f95dbe126268203e76aa6a585d1e7b149c
+        run: |
+          ARCHIVE="ripgrep-${RIPGREP_VERSION}-x86_64-unknown-linux-musl.tar.gz"
+          cd "$(mktemp -d)"
+          gh release download "$RIPGREP_VERSION" --repo BurntSushi/ripgrep \
+            --pattern "$ARCHIVE"
+          echo "${RIPGREP_SHA256}  ${ARCHIVE}" | sha256sum --check
+          tar -xzf "$ARCHIVE"
+          sudo install -m 755 "${ARCHIVE%.tar.gz}/rg" /usr/local/bin/
+          rg --version
+
+      - name: Extract ticket IDs from PR title
+        id: extract-tickets
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          echo "PR Title: $PR_TITLE"
+
+          PREFIX=$(echo "$PR_TITLE" | cut -d':' -f1)
+
+          TICKETS=$(echo "$PREFIX" | grep -oiE '[A-Z]+-[0-9]+' | tr '[:lower:]' '[:upper:]' | sort -u | tr '\n' ' ')
+
+          if [[ -z "$TICKETS" ]]; then
+            echo "No ticket IDs found in PR title"
+            {
+              echo "tickets="
+              echo "has_tickets=false"
+            } >> "$GITHUB_OUTPUT"
+          else
+            echo "Found ticket IDs: $TICKETS"
+            {
+              echo "tickets=$TICKETS"
+              echo "has_tickets=true"
+            } >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Search for TODO comments with ticket IDs
+        if: steps.extract-tickets.outputs.has_tickets == 'true'
+        env:
+          TICKETS: ${{ steps.extract-tickets.outputs.tickets }}
+        run: |
+          echo "Searching for TODO comments containing ticket IDs: $TICKETS"
+
+          FOUND_TODOS=""
+          EXIT_CODE=0
+
+          for TICKET in $TICKETS; do
+            echo ""
+            echo "=========================================="
+            echo "Searching for references to $TICKET..."
+            echo "=========================================="
+
+            SINGLE_LINE=$(rg -in "todo.*${TICKET}([^[:alnum:]-]|$)|${TICKET}([^[:alnum:]-]|$).*todo" .) || {
+              rc=$?
+              if [[ $rc -ne 1 ]]; then
+                echo "::error::ripgrep failed with exit code $rc"
+                exit $rc
+              fi
+            }
+
+            MULTILINE=$(rg -inU \
+              -e "todo[\s\S]{0,300}linear\.app/[^/]+/issue/${TICKET}([^[:alnum:]-]|$)" \
+              -e "linear\.app/[^/]+/issue/${TICKET}([^[:alnum:]-]|$)[\s\S]{0,300}todo" \
+              .) || {
+              rc=$?
+              if [[ $rc -ne 1 ]]; then
+                echo "::error::ripgrep failed with exit code $rc"
+                exit $rc
+              fi
+            }
+
+            MATCHES=$(echo -e "${SINGLE_LINE}\n${MULTILINE}" | grep -v '^$' | sort -u) || true
+
+            if [[ -n "$MATCHES" ]]; then
+              echo "::error::Found TODO comments or Linear URLs referencing $TICKET:"
+              echo "$MATCHES"
+              FOUND_TODOS="${FOUND_TODOS}### ${TICKET}"$'\n'"${MATCHES}"$'\n\n'
+              EXIT_CODE=1
+            else
+              echo "No TODO comments found for $TICKET"
+            fi
+          done
+
+          if [[ $EXIT_CODE -eq 1 ]]; then
+            echo ""
+            echo "::error::TODOs associated with tickets in this PR were found in the codebase."
+            echo "::error::Please resolve these TODOs before merging, as the associated ticket(s) will be marked as done."
+            echo ""
+            {
+              echo "## Found TODO comments"
+              echo ""
+              echo "The following TODO comments reference ticket IDs from this PR's title."
+              echo "Please resolve these TODOs before merging, as the associated ticket(s) will be marked as done."
+              echo ""
+              echo '```'
+              echo "$FOUND_TODOS"
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+
+          echo "No TODO comments found for any ticket IDs in the PR title"
