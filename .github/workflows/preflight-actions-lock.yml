@@ -1,0 +1,38 @@
+# Verify the GitHub Actions lockfile
+#
+# Reusable workflow that fails when the calling repository's
+# `.github/workflows/actions.lock` is missing an entry, is stale, or records a
+# pin GitHub would reject at run time. The `gh-actions-lock` version is pinned
+# centrally.
+name: Actions Lockfile
+
+on:
+  pull_request:
+  merge_group:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Lockfile
+    runs-on: ubuntu-24.04
+    # The default checkout resolves to the PR merge commit or the merge-group
+    # ref; any other calling event would silently verify the base branch.
+    if: github.event_name == 'pull_request' || github.event_name == 'merge_group'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Install gh-actions-lock
+        env:
+          GH_TOKEN: ${{ github.token }}
+          # renovate: datasource=github-releases depName=github/gh-actions-lock
+          GH_ACTIONS_LOCK_VERSION: v0.2.0
+        run: gh extension install github/gh-actions-lock --pin "${GH_ACTIONS_LOCK_VERSION}"
+
+      - name: Verify lockfile
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh actions-lock --verify
