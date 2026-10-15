@@ -23,6 +23,9 @@
   "dependencyDashboardTitle": "🚀 Dependency Updates",
   "minimumReleaseAge": "14 days",
   "postUpdateOptions": ["yarnDedupeHighest"],
+  "constraints": {
+    "ghActionsLock": "v0.2.0"
+  },
   "rebaseWhen": "conflicted",
   "semanticCommits": "disabled",
   "schedule": ["before 4am every weekday", "every weekend"],
@@ -447,6 +450,15 @@
         "go run (?<depName>[^\\s@]+)/cmd/[^\\s@]+@(?<currentValue>v\\d+\\.\\d+\\.\\d+)"
       ],
       "datasourceTemplate": "go"
+    },
+    {
+      "customType": "jsonata",
+      "description": "Bump `constraints.ghActionsLock` in the same pull request as `GH_ACTIONS_LOCK_VERSION` in `preflight-actions-lock.yml`, by sharing its depName and datasource.",
+      "fileFormat": "json",
+      "managerFilePatterns": ["/^renovate-config\\.json$/"],
+      "matchStrings": ["{ \"currentValue\": constraints.ghActionsLock }"],
+      "depNameTemplate": "github/gh-actions-lock",
+      "datasourceTemplate": "github-releases"
     }
   ]
 }

@@ -1,0 +1,11 @@
+$schema: https://json.schemastore.org/lefthook.json
+
+pre-commit:
+  parallel: true
+  skip:
+    - merge
+    - rebase
+  commands:
+    actions-lock:
+      glob: ".github/{workflows,actions}/**"
+      run: gh actions-lock --verify-local --no-fix

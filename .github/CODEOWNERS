@@ -1,0 +1,2 @@
+/.github/CODEOWNERS @hashintel/infra-admins
+/.github/workflows/actions.lock @hashintel/infra
