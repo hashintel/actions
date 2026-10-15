@@ -12,6 +12,6 @@ Pin the reference to a full commit SHA and add a `# main` comment so Renovate ca
 
 ```yaml
 jobs:
-  actionlint:
-    uses: hashintel/actions/.github/workflows/preflight-actionlint.yml@<commit-sha> # main
+  lint:
+    uses: hashintel/actions/.github/workflows/preflight-lint.yml@<commit-sha> # main
 ```

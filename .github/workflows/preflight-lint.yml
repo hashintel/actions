@@ -16,7 +16,7 @@ permissions:
 
 jobs:
   lint:
-    name: Actions
+    name: Actionlint
     runs-on: ubuntu-24.04
     # The default checkout resolves to the PR merge commit or the merge-group
     # ref; any other calling event would silently lint the base branch.
@@ -37,7 +37,7 @@ jobs:
   lockfile:
     name: Validate actions lockfile
     runs-on: ubuntu-24.04
-    # Same reason as the job above: any other calling event would verify the
+    # Same reason as the job above: any other calling event would validate the
     # base branch.
     if: github.event_name == 'pull_request' || github.event_name == 'merge_group'
     steps:
@@ -51,7 +51,7 @@ jobs:
           GH_ACTIONS_LOCK_VERSION: v0.2.0
         run: gh extension install github/gh-actions-lock --pin "${GH_ACTIONS_LOCK_VERSION}"
 
-      - name: Verify lockfile
+      - name: Validate lockfile
         env:
           GH_TOKEN: ${{ github.token }}
         run: gh actions-lock --verify
