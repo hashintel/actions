@@ -453,7 +453,7 @@
     },
     {
       "customType": "jsonata",
-      "description": "Bump `constraints.ghActionsLock` in the same pull request as `GH_ACTIONS_LOCK_VERSION` in `preflight-actions-lock.yml`, by sharing its depName and datasource.",
+      "description": "Bump `constraints.ghActionsLock` in the same pull request as `GH_ACTIONS_LOCK_VERSION` in `preflight-lint.yml`, by sharing its depName and datasource.",
       "fileFormat": "json",
       "managerFilePatterns": ["/^renovate-config\\.json$/"],
       "matchStrings": ["{ \"currentValue\": constraints.ghActionsLock }"],

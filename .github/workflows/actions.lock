@@ -11,13 +11,11 @@ workflows:
     '.github/workflows/lint.yml':
         - 'actions/checkout@v7.0.1'
         - 'actions/setup-node@v7.1.0'
-    '.github/workflows/preflight-actionlint.yml':
-        - 'actions/checkout@v7.0.1'
-    '.github/workflows/preflight-actions-lock.yml':
-        - 'actions/checkout@v7.0.1'
     '.github/workflows/preflight-dependencies.yml':
         - 'actions/checkout@v7.0.1'
         - 'actions/dependency-review-action@v5.0.0'
+    '.github/workflows/preflight-lint.yml':
+        - 'actions/checkout@v7.0.1'
     '.github/workflows/preflight-pr-title.yml': []
     '.github/workflows/preflight-todo-comments.yml':
         - 'actions/checkout@v7.0.1'

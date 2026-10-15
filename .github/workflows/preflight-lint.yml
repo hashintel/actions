@@ -1,7 +1,9 @@
 # Lint GitHub Actions workflows
 #
 # Reusable workflow that runs actionlint over the calling repository's
-# workflow files, with the actionlint version pinned centrally.
+# workflow files, and fails when its `.github/workflows/actions.lock` is
+# missing an entry, is stale, or records a pin GitHub would reject at run
+# time. The actionlint and `gh-actions-lock` versions are pinned centrally.
 name: Lint
 
 on:
@@ -14,7 +16,7 @@ permissions:
 
 jobs:
   lint:
-    name: Actions
+    name: Actionlint
     runs-on: ubuntu-24.04
     # The default checkout resolves to the PR merge commit or the merge-group
     # ref; any other calling event would silently lint the base branch.
@@ -31,3 +33,25 @@ jobs:
           -ignore 'specifying action "\$/.+" in invalid format because ref is missing'
           -ignore 'reusable workflow call "\$/.+" at "uses" is not following the format'
           -ignore 'unexpected key "queue" for "concurrency" section'
+
+  lockfile:
+    name: Validate actions lockfile
+    runs-on: ubuntu-24.04
+    # Same reason as the job above: any other calling event would validate the
+    # base branch.
+    if: github.event_name == 'pull_request' || github.event_name == 'merge_group'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7.0.1
+
+      - name: Install gh-actions-lock
+        env:
+          GH_TOKEN: ${{ github.token }}
+          # renovate: datasource=github-releases depName=github/gh-actions-lock
+          GH_ACTIONS_LOCK_VERSION: v0.2.0
+        run: gh extension install github/gh-actions-lock --pin "${GH_ACTIONS_LOCK_VERSION}"
+
+      - name: Validate lockfile
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh actions-lock --verify
