@@ -155,7 +155,7 @@ jobs:
         uses: $/.github/actions/install-renovate
 
       - name: Download renovate cache
-        uses: dawidd6/action-download-artifact@v24
+        uses: dawidd6/action-download-artifact@v27
         if: env.is_pr != 'true' && env.repo_cache != 'disabled'
         continue-on-error: true
         with:
