@@ -21,7 +21,7 @@
   "dependencyDashboard": true,
   "dependencyDashboardApproval": true,
   "dependencyDashboardTitle": "🚀 Dependency Updates",
-  "minimumReleaseAge": "14 days",
+  "minimumReleaseAge": "7 days",
   "postUpdateOptions": ["yarnDedupeHighest"],
   "constraints": {
     "ghActionsLock": "v0.2.0"
