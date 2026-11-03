@@ -81,6 +81,19 @@
       "assignees": ["TimDiekmann", "indietyp"]
     },
     {
+      "matchManagers": [
+        "pep621",
+        "pep723",
+        "pip-compile",
+        "pip_requirements",
+        "pip_setup",
+        "pipenv",
+        "poetry",
+        "setup-cfg"
+      ],
+      "assignees": ["indietyp"]
+    },
+    {
       "description": "Terraform providers",
       "matchManagers": ["terraform"],
       "matchDepTypes": ["provider"],
