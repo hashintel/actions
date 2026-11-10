@@ -1,0 +1,52 @@
+name: Dispatch promotion
+description: >-
+  Start a promotion of the calling run's commit to an environment. The run it
+  starts does the work and reports its own outcome; this action does not wait
+  for it.
+
+inputs:
+  target-environment:
+    description: Environment to promote to.
+    required: true
+  vault-address:
+    description: Vault instance holding the signing key.
+    required: true
+  vault-role:
+    description: JWT role for the calling workflow, which is what binds this to one caller.
+    required: true
+  app-id:
+    description: GitHub App that may start the promotion.
+    required: true
+  transit-key:
+    description: Transit key holding that App's private key, named `github-app-<slug>`.
+    required: true
+  cf-access-client-id:
+    description: Cloudflare Access service token id for that Vault instance.
+    required: true
+  cf-access-client-secret:
+    description: Cloudflare Access service token secret for that Vault instance.
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Get token
+      id: token
+      uses: $/.github/actions/github-app-token
+      with:
+        vault-address: ${{ inputs.vault-address }}
+        vault-role: ${{ inputs.vault-role }}
+        app-id: ${{ inputs.app-id }}
+        transit-key: ${{ inputs.transit-key }}
+        cf-access-client-id: ${{ inputs.cf-access-client-id }}
+        cf-access-client-secret: ${{ inputs.cf-access-client-secret }}
+        repository: hashintel/internal-infra
+
+    - name: Dispatch
+      shell: bash
+      env:
+        GITHUB_APP_TOKEN: ${{ steps.token.outputs.token }}
+        REPOSITORY: hashintel/internal-infra
+        TARGET_ENVIRONMENT: ${{ inputs.target-environment }}
+        COMMIT_SHA: ${{ github.sha }}
+      run: "${GITHUB_ACTION_PATH}/dispatch.sh"
