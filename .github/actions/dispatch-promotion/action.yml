@@ -8,6 +8,12 @@ inputs:
   target-environment:
     description: Environment to promote to.
     required: true
+  project:
+    description: >-
+      Project to promote. Without it, the promote workflow promotes its default
+      project.
+    required: false
+    default: ""
   vault-address:
     description: Vault instance holding the signing key.
     required: true
@@ -47,6 +53,7 @@ runs:
       env:
         GITHUB_APP_TOKEN: ${{ steps.token.outputs.token }}
         REPOSITORY: hashintel/internal-infra
+        PROJECT: ${{ inputs.project }}
         TARGET_ENVIRONMENT: ${{ inputs.target-environment }}
         COMMIT_SHA: ${{ github.sha }}
       run: "${GITHUB_ACTION_PATH}/dispatch.sh"
