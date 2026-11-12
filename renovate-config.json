@@ -24,7 +24,7 @@
   "minimumReleaseAge": "7 days",
   "postUpdateOptions": ["yarnDedupeHighest"],
   "constraints": {
-    "ghActionsLock": "v0.2.0"
+    "ghActionsLock": "v0.4.1"
   },
   "rebaseWhen": "conflicted",
   "semanticCommits": "disabled",
