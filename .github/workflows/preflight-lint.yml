@@ -17,7 +17,7 @@ permissions:
 jobs:
   lint:
     name: Actionlint
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     # The default checkout resolves to the PR merge commit or the merge-group
     # ref; any other calling event would silently lint the base branch.
     if: github.event_name == 'pull_request' || github.event_name == 'merge_group'
@@ -36,7 +36,7 @@ jobs:
 
   lockfile:
     name: Validate actions lockfile
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     # Same reason as the job above: any other calling event would validate the
     # base branch.
     if: github.event_name == 'pull_request' || github.event_name == 'merge_group'
