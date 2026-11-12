@@ -9,11 +9,8 @@ inputs:
     description: Environment to promote to.
     required: true
   project:
-    description: >-
-      Project to promote. Without it, the promote workflow promotes its default
-      project.
-    required: false
-    default: ""
+    description: Project to promote.
+    required: true
   vault-address:
     description: Vault instance holding the signing key.
     required: true
@@ -36,6 +33,18 @@ inputs:
 runs:
   using: composite
   steps:
+    # GitHub does not enforce `required` on the inputs of a composite action.
+    # This runs first, so a caller without `project` fails before a token is signed.
+    - name: Require the project
+      shell: bash
+      env:
+        PROJECT: ${{ inputs.project }}
+      run: |
+        if [[ -z "${PROJECT}" ]]; then
+          echo "::error::dispatch-promotion needs the \`project\` input: the project to promote."
+          exit 1
+        fi
+
     - name: Get token
       id: token
       uses: $/.github/actions/github-app-token
