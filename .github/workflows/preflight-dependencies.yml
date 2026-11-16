@@ -38,7 +38,7 @@ jobs:
     # dependency-review-action requires GitHub Advanced Security on private repos
     # TODO(SRE-620): Remove once GHAS is enabled for private repos
     if: github.event.repository.visibility == 'public'
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7.0.1
