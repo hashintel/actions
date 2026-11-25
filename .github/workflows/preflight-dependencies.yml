@@ -19,6 +19,11 @@ on:
   pull_request:
     paths:
       - ".github/workflows/preflight-dependencies.yml"
+  # Runs the base branch's copy of this workflow, so a pull request cannot
+  # change the check that gates it, and gives fork pull requests the write token
+  # that the summary comment needs. The job checks out the base branch and runs
+  # no code of the pull request.
+  # jactionlint ignore=dangerous-triggers
   pull_request_target:
   merge_group:
   workflow_call:
@@ -30,15 +35,27 @@ on:
 
 permissions:
   contents: read
+  # Lets dependency-review-action post its summary comment on a failing pull
+  # request. Safe on `pull_request_target`: no step runs code of the pull request.
+  # jactionlint ignore=excessive-permissions
   pull-requests: write
+
+# Inside a called workflow `github.workflow` is the caller's name, so the
+# `preflight-dependencies` part keeps this group apart from the caller's own
+# group. The event name keeps this repository's `pull_request` and
+# `pull_request_target` runs of one pull request from cancelling each other.
+concurrency:
+  group: ${{ github.workflow }}-preflight-dependencies-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   review:
     name: Review
     # dependency-review-action requires GitHub Advanced Security on private repos
     # TODO(SRE-620): Remove once GHAS is enabled for private repos
-    if: github.event.repository.visibility == 'public'
+    if: ${{ github.event.repository.visibility == 'public' }}
     runs-on: ubuntu-26.04
+    timeout-minutes: 10
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7.0.1

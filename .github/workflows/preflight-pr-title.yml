@@ -15,6 +15,10 @@ on:
     types: [opened, synchronize, reopened, edited]
     paths:
       - ".github/workflows/preflight-pr-title.yml"
+  # Runs the base branch's copy of this workflow, so a pull request cannot
+  # change the check that gates it. The token cannot write, the job has no
+  # secrets, and it reads only the title: it checks out nothing.
+  # jactionlint ignore=dangerous-triggers
   pull_request_target:
     types: [opened, synchronize, reopened, edited]
   merge_group:
@@ -23,11 +27,24 @@ on:
 permissions:
   contents: read
 
+# Inside a called workflow `github.workflow` is the caller's name, so the
+# `preflight-pr-title` part keeps this group apart from the caller's own group.
+# The event name keeps this repository's `pull_request` and
+# `pull_request_target` runs of one pull request from cancelling each other.
+concurrency:
+  group: ${{ github.workflow }}-preflight-pr-title-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
 jobs:
   check:
     name: Linear Issue ID
     runs-on: ubuntu-26.04
-    if: (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') && !contains(fromJSON('["dependabot[bot]", "hash-dependencies[bot]", "hash-release[bot]"]'), github.event.pull_request.user.login)
+    timeout-minutes: 5
+    if: ${{ (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') && !contains(fromJSON('["dependabot[bot]", "hash-dependencies[bot]", "hash-release[bot]"]'), github.event.pull_request.user.login) }}
     steps:
       - name: Validate PR title contains Linear issue ID
         env:
@@ -40,7 +57,7 @@ jobs:
           PREFIX=$(echo "$PR_TITLE" | cut -d':' -f1)
 
           TICKETS=$(echo "$PREFIX" \
-            | grep -oiE '[A-Z]+-[0-9]+' \
+            | { grep -oiE '[A-Z]+-[0-9]+' || true; } \
             | tr '[:lower:]' '[:upper:]' \
             | sort -u \
             | tr '\n' ' ')

@@ -15,3 +15,17 @@ jobs:
   lint:
     uses: hashintel/actions/.github/workflows/preflight-lint.yml@<commit-sha> # main
 ```
+
+## Workflow lint profile
+
+`preflight-lint.yml` runs jactionlint with the `pedantic` profile, which every repository is moving to. A caller still fixing its findings can pass `jactionlint-profile: correctness` or `default` for the time being:
+
+```yaml
+jobs:
+  lint:
+    uses: hashintel/actions/.github/workflows/preflight-lint.yml@<commit-sha> # main
+    with:
+      jactionlint-profile: correctness
+```
+
+The input is removed once every caller lints with `pedantic`. Mutable runner labels such as `ubuntu-latest` fail with every profile.
