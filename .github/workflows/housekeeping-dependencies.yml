@@ -91,7 +91,7 @@ permissions: {}
 jobs:
   mint-token:
     name: Mint token
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     permissions:
       contents: read
       id-token: write
@@ -127,7 +127,7 @@ jobs:
 
   renovate:
     name: Renovate
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     needs: mint-token
     # No `id-token` here: compromised dependency code in this job gets at most
     # the hour-long installation token scoped to the calling repository.
