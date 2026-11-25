@@ -1,16 +1,27 @@
 # Lint GitHub Actions workflows
 #
 # Reusable workflow that runs jactionlint over the calling repository's
-# workflow and action files, and fails when its
+# workflow and action files with the rule profile the caller selects (default
+# `correctness`), fails on runner labels that GitHub moves to newer
+# images (such as `ubuntu-latest`), fails when its
 # `.github/workflows/actions.lock` is missing an entry, is stale, or records a
-# pin GitHub would reject at run time. The jactionlint and `gh-actions-lock`
-# versions are pinned centrally.
+# pin GitHub would reject at run time, and validates its Renovate config. The
+# jactionlint, `gh-actions-lock` and Renovate versions are pinned centrally.
 name: Lint
 
 on:
   pull_request:
   merge_group:
   workflow_call:
+    inputs:
+      jactionlint-profile:
+        description: >-
+          jactionlint rule profile: `correctness` (the checks of actionlint),
+          `default` (adds security and policy rules) or `pedantic` (adds style
+          rules). Mutable runner labels fail with any profile.
+        type: string
+        required: false
+        default: correctness
 
 permissions:
   contents: read
@@ -27,7 +38,28 @@ jobs:
         uses: actions/checkout@v7.0.1
 
       - name: Jactionlint
-        run: go run github.com/jdx/jactionlint/v2/cmd/jactionlint@v2.6.0 --profile correctness
+        env:
+          # Inputs are empty when this repository runs the workflow on its own
+          # `pull_request` and `merge_group` events.
+          PROFILE: ${{ inputs.jactionlint-profile || 'correctness' }}
+        run: |
+          case "${PROFILE}" in
+            correctness | default | pedantic) ;;
+            *)
+              echo "::error title=Jactionlint::Unknown jactionlint-profile '${PROFILE}', expected correctness, default or pedantic"
+              exit 1
+              ;;
+          esac
+
+          go run github.com/jdx/jactionlint/v2/cmd/jactionlint@v2.6.0 --profile "${PROFILE}"
+
+      # Only the pedantic profile includes this rule, and it reports it as a
+      # warning, so it runs on its own with `--strict-exit`. A pinned label
+      # such as `ubuntu-26.04` keeps the runner image fixed until the
+      # repository changes it; `ubuntu-latest` moves to a new image when GitHub
+      # decides to.
+      - name: Disallow mutable runner labels
+        run: go run github.com/jdx/jactionlint/v2/cmd/jactionlint@v2.6.0 --select mutable-runner-label --strict-exit
 
   lockfile:
     name: Validate actions lockfile
@@ -50,3 +82,50 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: gh actions-lock --verify
+
+  renovate:
+    name: Validate Renovate config
+    runs-on: ubuntu-26.04
+    # Same reason as the jobs above: any other calling event would validate the
+    # base branch.
+    if: github.event_name == 'pull_request' || github.event_name == 'merge_group'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+
+      # The file names Renovate reads its repository config from. A repository
+      # without any of them passes, so the check can be required everywhere.
+      - name: Find Renovate config
+        id: config
+        run: |
+          for file in \
+            renovate.json renovate.json5 \
+            .github/renovate.json .github/renovate.json5 \
+            .gitlab/renovate.json .gitlab/renovate.json5 \
+            .renovaterc .renovaterc.json .renovaterc.json5; do
+            if [[ -f "${file}" ]]; then
+              echo "found=true" >>"${GITHUB_OUTPUT}"
+              exit 0
+            fi
+          done
+
+          if [[ -f package.json ]] && jq -e 'has("renovate")' package.json >/dev/null 2>&1; then
+            echo "found=true" >>"${GITHUB_OUTPUT}"
+            exit 0
+          fi
+
+          echo "::notice title=Validate Renovate config::No Renovate config found, skipping validation"
+          echo "found=false" >>"${GITHUB_OUTPUT}"
+
+      # `$/` resolves against this workflow's commit, not the caller's checkout.
+      - name: Install Renovate
+        if: steps.config.outputs.found == 'true'
+        uses: $/.github/actions/install-renovate
+
+      # Without arguments the validator checks every config file Renovate would
+      # read. `--strict` also fails on config that Renovate would migrate.
+      - name: Validate Renovate config
+        if: steps.config.outputs.found == 'true'
+        run: renovate-config-validator --strict
