@@ -58,4 +58,4 @@ runs:
         TRANSIT_KEY: ${{ inputs.transit-key }}
         APP_ID: ${{ inputs.app-id }}
         REPOSITORY: ${{ inputs.repository }}
-      run: "${GITHUB_ACTION_PATH}/token.sh"
+      run: '"${GITHUB_ACTION_PATH}/token.sh"'
