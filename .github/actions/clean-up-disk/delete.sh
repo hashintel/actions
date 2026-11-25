@@ -14,14 +14,23 @@ prior_gib=$(($(df --output=avail --block-size=1K / | tail -n 1 | tr -d ' ') / 10
 
 empty=$(mktemp -d)
 
+declare -A workers=()
 for dir in "${CANDIDATES[@]}"; do
     if [[ -d $dir ]]; then
         echo "Deleting $dir"
         # rsync --delete is 10-100x faster than rm -rf for directories with many small files
         (sudo rsync -a --delete "$empty/" "$dir/" && sudo rmdir "$dir") &
+        workers[$!]=$dir
     fi
 done
-wait
+
+failed=false
+for pid in "${!workers[@]}"; do
+    if ! wait "$pid"; then
+        echo "::error::Could not delete ${workers[$pid]}"
+        failed=true
+    fi
+done
 
 rmdir "$empty"
 
@@ -33,3 +42,7 @@ fi
 echo "Prior free space: $prior_gib GiB"
 echo "Available free space: $available_gib GiB"
 echo "Freed: $((available_gib - prior_gib)) GiB"
+
+if [[ $failed == true ]]; then
+    exit 1
+fi
