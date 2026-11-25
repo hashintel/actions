@@ -26,13 +26,15 @@ jobs:
         uses: actions/checkout@v7.0.1
 
       # TODO(SRE-941): drop the -ignore flags once actionlint knows `$/`
-      # (rhysd/actionlint#711) and `concurrency.queue` (rhysd/actionlint#654)
+      # (rhysd/actionlint#711), `concurrency.queue` (rhysd/actionlint#654) and
+      # the `ubuntu-26.04` runner labels
       - name: Actionlint
         run: >-
           go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
           -ignore 'specifying action "\$/.+" in invalid format because ref is missing'
           -ignore 'reusable workflow call "\$/.+" at "uses" is not following the format'
           -ignore 'unexpected key "queue" for "concurrency" section'
+          -ignore 'label "ubuntu-26\.04(-arm)?" is unknown'
 
   lockfile:
     name: Validate actions lockfile
