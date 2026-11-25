@@ -6,12 +6,23 @@ description: >-
 
 inputs:
   required-free-gib:
-    description: Free space on `/` the job needs, in GiB. Space will only be freed if the runner has less than the specified amount of free space.
-    default: "20"
+    description: Free space on `/` the job needs, in whole GiB. Space will only be freed if the runner has less than the specified amount of free space.
+    required: true
 
 runs:
   using: composite
   steps:
+    # GitHub does not enforce `required` on the inputs of a composite action.
+    - name: Require the free space
+      shell: bash
+      env:
+        REQUIRED_FREE_GIB: ${{ inputs.required-free-gib }}
+      run: |
+        if [[ ! "${REQUIRED_FREE_GIB}" =~ ^[1-9][0-9]*$ ]]; then
+          echo "::error::clean-up-disk needs the \`required-free-gib\` input as a positive whole number of GiB, got '${REQUIRED_FREE_GIB}'."
+          exit 1
+        fi
+
     - name: Check free disk space
       id: free
       shell: bash
