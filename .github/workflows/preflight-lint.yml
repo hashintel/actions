@@ -1,9 +1,10 @@
 # Lint GitHub Actions workflows
 #
-# Reusable workflow that runs actionlint over the calling repository's
-# workflow files, and fails when its `.github/workflows/actions.lock` is
-# missing an entry, is stale, or records a pin GitHub would reject at run
-# time. The actionlint and `gh-actions-lock` versions are pinned centrally.
+# Reusable workflow that runs jactionlint over the calling repository's
+# workflow and action files, and fails when its
+# `.github/workflows/actions.lock` is missing an entry, is stale, or records a
+# pin GitHub would reject at run time. The jactionlint and `gh-actions-lock`
+# versions are pinned centrally.
 name: Lint
 
 on:
@@ -25,16 +26,8 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7.0.1
 
-      # TODO(SRE-941): drop the -ignore flags once actionlint knows `$/`
-      # (rhysd/actionlint#711), `concurrency.queue` (rhysd/actionlint#654) and
-      # the `ubuntu-26.04` runner labels
-      - name: Actionlint
-        run: >-
-          go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
-          -ignore 'specifying action "\$/.+" in invalid format because ref is missing'
-          -ignore 'reusable workflow call "\$/.+" at "uses" is not following the format'
-          -ignore 'unexpected key "queue" for "concurrency" section'
-          -ignore 'label "ubuntu-26\.04(-arm)?" is unknown'
+      - name: Jactionlint
+        run: go run github.com/jdx/jactionlint/v2/cmd/jactionlint@v2.6.0 --profile correctness
 
   lockfile:
     name: Validate actions lockfile
@@ -50,7 +43,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           # renovate: datasource=github-releases depName=github/gh-actions-lock
-          GH_ACTIONS_LOCK_VERSION: v0.4.1
+          GH_ACTIONS_LOCK_VERSION: v0.5.1
         run: gh extension install github/gh-actions-lock --pin "${GH_ACTIONS_LOCK_VERSION}"
 
       - name: Validate lockfile

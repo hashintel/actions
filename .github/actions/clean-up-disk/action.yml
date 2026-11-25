@@ -1,0 +1,52 @@
+name: Clean up disk
+description: >-
+  Frees disk space on an Ubuntu runner that has less than the job needs, by
+  deleting the preinstalled .NET, Swift, Java, Haskell, Android and PowerShell
+  SDKs. Do not use it in a job that needs one of them.
+
+inputs:
+  required-free-gib:
+    description: Free space on `/` the job needs, in GiB. Space will only be freed if the runner has less than the specified amount of free space.
+    default: "20"
+
+runs:
+  using: composite
+  steps:
+    - name: Check free disk space
+      id: free
+      shell: bash
+      env:
+        REQUIRED_FREE_GIB: ${{ inputs.required-free-gib }}
+      run: |
+        df -h /
+        required_kib=$((REQUIRED_FREE_GIB * 1024 * 1024))
+        available_kib=$(df --output=avail --block-size=1K / | tail -n 1 | tr -d ' ')
+
+        if ((available_kib < required_kib)); then
+          needed=true
+        else
+          needed=false
+          echo "$((available_kib / 1024 / 1024)) GiB free, more than the minimum required $REQUIRED_FREE_GIB GiB."
+          echo "Skipping cleanup."
+        fi
+
+        echo "needed=$needed" >>"$GITHUB_OUTPUT"
+
+    - name: Delete preinstalled directories
+      if: steps.free.outputs.needed == 'true'
+      shell: bash
+      env:
+        REQUIRED_FREE_GIB: ${{ inputs.required-free-gib }}
+      run: '"$GITHUB_ACTION_PATH/delete.sh"'
+
+    - name: Remove unused packages
+      if: steps.free.outputs.needed == 'true'
+      shell: bash
+      run: |
+        sudo apt-get autoremove -y
+        sudo apt-get autoclean -y
+
+    - name: Check disk space after cleanup
+      if: steps.free.outputs.needed == 'true'
+      shell: bash
+      run: df -h /
