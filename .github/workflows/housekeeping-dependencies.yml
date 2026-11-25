@@ -142,8 +142,7 @@ jobs:
   renovate:
     name: Renovate
     runs-on: ubuntu-26.04
-    # The installation token expires after an hour, so a longer run fails anyway.
-    timeout-minutes: 60
+    timeout-minutes: 5
     needs: mint-token
     # No `id-token` here: compromised dependency code in this job gets at most
     # the hour-long installation token scoped to the calling repository.
