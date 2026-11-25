@@ -34,7 +34,7 @@ jobs:
           RIPGREP_VERSION: 16.0.0
           # Update alongside RIPGREP_VERSION — Renovate bumps the version but
           # cannot maintain this hash, so version bumps fail until it is updated.
-          RIPGREP_SHA256: 33e15bcf1624b25cdd2a55813a47a2f95dbe126268203e76aa6a585d1e7b149c
+          RIPGREP_SHA256: 056c377a8a265e484cea0312a712c73909a88178494f8e8a753248e11209e3f7
         run: |
           ARCHIVE="ripgrep-${RIPGREP_VERSION}-x86_64-unknown-linux-musl.tar.gz"
           cd "$(mktemp -d)"
