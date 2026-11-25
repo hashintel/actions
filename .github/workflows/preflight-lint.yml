@@ -1,7 +1,8 @@
 # Lint GitHub Actions workflows
 #
 # Reusable workflow that runs jactionlint over the calling repository's
-# workflow and action files, and fails when its
+# workflow and action files, fails on runner labels that GitHub moves to newer
+# images (such as `ubuntu-latest`), and fails when its
 # `.github/workflows/actions.lock` is missing an entry, is stale, or records a
 # pin GitHub would reject at run time. The jactionlint and `gh-actions-lock`
 # versions are pinned centrally.
@@ -28,6 +29,13 @@ jobs:
 
       - name: Jactionlint
         run: go run github.com/jdx/jactionlint/v2/cmd/jactionlint@v2.6.0 --profile correctness
+
+      # The correctness profile does not include this rule. A pinned label
+      # such as `ubuntu-26.04` keeps the runner image fixed until the
+      # repository changes it; `ubuntu-latest` moves to a new image when GitHub
+      # decides to.
+      - name: Disallow mutable runner labels
+        run: go run github.com/jdx/jactionlint/v2/cmd/jactionlint@v2.6.0 --select mutable-runner-label --strict-exit
 
   lockfile:
     name: Validate actions lockfile
