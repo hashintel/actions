@@ -2,10 +2,10 @@
 #
 # Reusable workflow that runs jactionlint over the calling repository's
 # workflow and action files, fails on runner labels that GitHub moves to newer
-# images (such as `ubuntu-latest`), and fails when its
+# images (such as `ubuntu-latest`), fails when its
 # `.github/workflows/actions.lock` is missing an entry, is stale, or records a
-# pin GitHub would reject at run time. The jactionlint and `gh-actions-lock`
-# versions are pinned centrally.
+# pin GitHub would reject at run time, and validates its Renovate config. The
+# jactionlint, `gh-actions-lock` and Renovate versions are pinned centrally.
 name: Lint
 
 on:
@@ -58,3 +58,50 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: gh actions-lock --verify
+
+  renovate:
+    name: Validate Renovate config
+    runs-on: ubuntu-26.04
+    # Same reason as the jobs above: any other calling event would validate the
+    # base branch.
+    if: github.event_name == 'pull_request' || github.event_name == 'merge_group'
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7.0.1
+        with:
+          persist-credentials: false
+
+      # The file names Renovate reads its repository config from. A repository
+      # without any of them passes, so the check can be required everywhere.
+      - name: Find Renovate config
+        id: config
+        run: |
+          for file in \
+            renovate.json renovate.json5 \
+            .github/renovate.json .github/renovate.json5 \
+            .gitlab/renovate.json .gitlab/renovate.json5 \
+            .renovaterc .renovaterc.json .renovaterc.json5; do
+            if [[ -f "${file}" ]]; then
+              echo "found=true" >>"${GITHUB_OUTPUT}"
+              exit 0
+            fi
+          done
+
+          if [[ -f package.json ]] && jq -e 'has("renovate")' package.json >/dev/null 2>&1; then
+            echo "found=true" >>"${GITHUB_OUTPUT}"
+            exit 0
+          fi
+
+          echo "::notice title=Validate Renovate config::No Renovate config found, skipping validation"
+          echo "found=false" >>"${GITHUB_OUTPUT}"
+
+      # `$/` resolves against this workflow's commit, not the caller's checkout.
+      - name: Install Renovate
+        if: steps.config.outputs.found == 'true'
+        uses: $/.github/actions/install-renovate
+
+      # Without arguments the validator checks every config file Renovate would
+      # read. `--strict` also fails on config that Renovate would migrate.
+      - name: Validate Renovate config
+        if: steps.config.outputs.found == 'true'
+        run: renovate-config-validator --strict
