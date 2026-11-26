@@ -183,15 +183,12 @@ jobs:
       - name: Install Renovate
         uses: $/.github/actions/install-renovate
 
-      # A dry run uploads no cache, so the newest run may lack one; the search
-      # goes back to the newest run that has it.
       - name: Download renovate cache
         uses: dawidd6/action-download-artifact@v28
         if: ${{ env.repo_cache != 'disabled' }}
         with:
           name: renovate-cache
           path: cache-download
-          search_artifacts: true
           if_no_artifact_found: warn
 
       - name: Extract renovate cache
@@ -229,7 +226,9 @@ jobs:
           name: renovate-cache
           path: renovate_cache.tar.gz
           if-no-files-found: error
-          retention-days: 1
+          # The next scheduled run downloads it at about the same time of day,
+          # so a single day can expire it moments before.
+          retention-days: 2
 
       # Also when an earlier step fails or the job is cancelled: the token would
       # otherwise stay valid for the rest of its hour.
