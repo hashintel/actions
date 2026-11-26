@@ -45,9 +45,7 @@ jobs:
     permissions:
       contents: read
       # Lets dependency-review-action post its summary comment on a failing
-      # pull request from a branch of the same repository. A fork's pull
-      # request gets a read-only token on `pull_request`, so the step skips the
-      # comment there.
+      # pull request.
       pull-requests: write
     steps:
       - name: Checkout repository
@@ -56,8 +54,6 @@ jobs:
       - name: Dependency Review
         uses: actions/dependency-review-action@v5.0.1
         with:
-          # A fork's pull request gets a read-only token on `pull_request`, so
-          # it gets no comment; the job summary still lists the findings.
           comment-summary-in-pr: ${{ github.event.pull_request.head.repo.fork && 'never' || 'on-failure' }}
           show-patched-versions: true
           # Empty on this workflow's own triggers and for callers that don't set
