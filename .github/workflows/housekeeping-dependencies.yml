@@ -153,7 +153,7 @@ jobs:
   renovate:
     name: Renovate
     runs-on: ubuntu-26.04
-    timeout-minutes: 5
+    timeout-minutes: 15
     needs: mint-token
     environment:
       name: Renovate
