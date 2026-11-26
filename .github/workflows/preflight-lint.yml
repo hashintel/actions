@@ -17,10 +17,10 @@ on:
       jactionlint-profile:
         description: >-
           jactionlint rule profile. `pedantic` is the target for every
-          repository. `correctness` (the checks of actionlint) and `default`
-          (adds security and policy rules) are temporary overrides for callers
-          still migrating, and the input is removed once every caller passes
-          `pedantic`. Mutable runner labels fail with any profile.
+          repository. `correctness` runs the checks of actionlint and `default`
+          adds security and policy rules; both are temporary overrides for
+          callers still migrating, and the input is removed once every caller
+          passes `pedantic`. Mutable runner labels fail with any profile.
         type: string
         required: false
         default: pedantic
