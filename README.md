@@ -89,6 +89,7 @@ jobs:
 
 The calling repository needs an environment named `Renovate` whose deployment branches are limited to `main`, with no bypass for administrators, so that no job of another ref can read its secrets. It holds:
 
+- The variable `VAULT_ADDR`, the address of the staging Vault.
 - The variable `CF_ACCESS_CLIENT_ID` and the secret `CF_ACCESS_CLIENT_SECRET`, the ID and secret of the Cloudflare Access service token for the staging Vault.
 - The secret `RENOVATE_TOKEN_ENC_KEY`, a random passphrase of the repository's own. The token's ciphertext is in the run log, which a public repository shows to everyone, so a passphrase shared between repositories would let a run of one decrypt the token of another. Nobody needs to know it, so generate it straight into the secret:
 
