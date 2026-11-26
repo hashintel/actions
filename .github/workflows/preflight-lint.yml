@@ -1,12 +1,12 @@
 # Lint GitHub Actions workflows
 #
 # Reusable workflow that runs jactionlint over the calling repository's
-# workflow and action files with the `pedantic` rule profile, fails on runner
-# labels that GitHub moves to newer images (such as `ubuntu-latest`), fails
-# when its `.github/workflows/actions.lock` is missing an entry, is stale, or
-# records a pin GitHub would reject at run time, and validates its Renovate
-# config. The jactionlint, `gh-actions-lock` and Renovate versions are pinned
-# centrally.
+# workflow and action files with the `pedantic` rule profile and fails on
+# findings of every level, fails on runner labels that GitHub moves to newer
+# images (such as `ubuntu-latest`), fails when its
+# `.github/workflows/actions.lock` is missing an entry, is stale, or records a
+# pin GitHub would reject at run time, and validates its Renovate config. The
+# jactionlint, `gh-actions-lock` and Renovate versions are pinned centrally.
 name: Lint
 
 on:
@@ -64,13 +64,12 @@ jobs:
               ;;
           esac
 
-          go run github.com/jdx/jactionlint/v2/cmd/jactionlint@v2.6.0 --profile "${PROFILE}"
+          go run github.com/jdx/jactionlint/v2/cmd/jactionlint@v2.6.0 --profile "${PROFILE}" --strict-exit
 
-      # Only the pedantic profile includes this rule, and it reports it as a
-      # warning, so it runs on its own with `--strict-exit`. A pinned label
-      # such as `ubuntu-26.04` keeps the runner image fixed until the
-      # repository changes it; `ubuntu-latest` moves to a new image when GitHub
-      # decides to.
+      # Only the pedantic profile includes this rule, so it runs on its own for
+      # callers on another profile. A pinned label such as `ubuntu-26.04` keeps
+      # the runner image fixed until the repository changes it; `ubuntu-latest`
+      # moves to a new image when GitHub decides to.
       - name: Disallow mutable runner labels
         run: go run github.com/jdx/jactionlint/v2/cmd/jactionlint@v2.6.0 --select mutable-runner-label --strict-exit
 

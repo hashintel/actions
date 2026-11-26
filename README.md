@@ -30,6 +30,14 @@ jobs:
 
 The input is removed once every caller lints with `pedantic`. Mutable runner labels such as `ubuntu-latest` fail with every profile.
 
+Findings of every level fail the check, warnings and info included. To keep a finding that is justified, put an ignore comment for its rule on the line above it, with the reason on a comment line of its own. Text after the rule ID on the ignore line is read as part of the pattern, so the reason cannot go there.
+
+```yaml
+    # <reason>
+    # jactionlint ignore=mutable-runner-label
+    runs-on: ubuntu-latest
+```
+
 ## Pull request checks
 
 Call `preflight-pr-title.yml` and `preflight-dependencies.yml` from a workflow that runs on `pull_request`, not `pull_request_target`. The PR title check needs the `edited` type so it reruns when the title changes:
