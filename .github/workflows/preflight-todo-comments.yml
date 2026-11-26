@@ -15,12 +15,23 @@ on:
 permissions:
   contents: read
 
+# Inside a called workflow `github.workflow` is the caller's name, so the
+# `preflight-todo-comments` part keeps this group apart from the caller's own
+# group.
+concurrency:
+  group: ${{ github.workflow }}-preflight-todo-comments-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
 jobs:
   scan:
     name: Scan
     runs-on: ubuntu-26.04
     timeout-minutes: 3
-    if: github.event_name == 'pull_request'
+    if: ${{ github.event_name == 'pull_request' }}
     steps:
       - name: Checkout PR head
         uses: actions/checkout@v7.0.1
@@ -54,7 +65,7 @@ jobs:
 
           PREFIX=$(echo "$PR_TITLE" | cut -d':' -f1)
 
-          TICKETS=$(echo "$PREFIX" | grep -oiE '[A-Z]+-[0-9]+' | tr '[:lower:]' '[:upper:]' | sort -u | tr '\n' ' ')
+          TICKETS=$(echo "$PREFIX" | { grep -oiE '[A-Z]+-[0-9]+' || true; } | tr '[:lower:]' '[:upper:]' | sort -u | tr '\n' ' ')
 
           if [[ -z "$TICKETS" ]]; then
             echo "No ticket IDs found in PR title"
@@ -71,7 +82,7 @@ jobs:
           fi
 
       - name: Search for TODO comments with ticket IDs
-        if: steps.extract-tickets.outputs.has_tickets == 'true'
+        if: ${{ steps.extract-tickets.outputs.has_tickets == 'true' }}
         env:
           TICKETS: ${{ steps.extract-tickets.outputs.tickets }}
         run: |

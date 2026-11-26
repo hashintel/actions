@@ -88,12 +88,18 @@ on:
 
 permissions: {}
 
+defaults:
+  run:
+    shell: bash
+
 jobs:
   mint-token:
     name: Mint token
     runs-on: ubuntu-26.04
+    timeout-minutes: 10
     permissions:
       contents: read
+      # Signs the OIDC token that Vault exchanges for the App installation token.
       id-token: write
     # Shares the renovate group so the hour-long token is minted only once the
     # run can proceed, not while queued behind a still-running Renovate job.
@@ -114,6 +120,10 @@ jobs:
           transit-key: github-app-hash-dependencies
           repository: ${{ github.repository }}
           cf-access-client-id: ${{ vars.CF_ACCESS_STAGE_CLIENT_ID }}
+          # Callers pass this secret explicitly, from a job that calls a
+          # workflow and so cannot have an environment: no `environment:` here
+          # would scope it.
+          # jactionlint ignore=secrets-outside-env
           cf-access-client-secret: ${{ secrets.CF_ACCESS_STAGE_CLIENT_SECRET }}
 
       # The token is already masked, and GitHub silently drops masked values
@@ -123,15 +133,21 @@ jobs:
         uses: $/.github/actions/encrypt-secret
         with:
           value: ${{ steps.app-token.outputs.token }}
+          # Callers pass this secret explicitly, from a job that calls a
+          # workflow and so cannot have an environment: no `environment:` here
+          # would scope it.
+          # jactionlint ignore=secrets-outside-env
           encryption_key: ${{ secrets.RENOVATE_TOKEN_ENC_KEY }}
 
   renovate:
     name: Renovate
     runs-on: ubuntu-26.04
+    timeout-minutes: 5
     needs: mint-token
     # No `id-token` here: compromised dependency code in this job gets at most
     # the hour-long installation token scoped to the calling repository.
     permissions:
+      # Lets dawidd6/action-download-artifact find the cache of an earlier run.
       actions: read
       contents: read
     concurrency:
@@ -149,6 +165,10 @@ jobs:
         uses: $/.github/actions/decrypt-secret
         with:
           encrypted_value: ${{ needs.mint-token.outputs.token-ciphertext }}
+          # Callers pass this secret explicitly, from a job that calls a
+          # workflow and so cannot have an environment: no `environment:` here
+          # would scope it.
+          # jactionlint ignore=secrets-outside-env
           encryption_key: ${{ secrets.RENOVATE_TOKEN_ENC_KEY }}
 
       - name: Install Renovate
@@ -156,14 +176,14 @@ jobs:
 
       - name: Download renovate cache
         uses: dawidd6/action-download-artifact@v28
-        if: env.is_pr != 'true' && env.repo_cache != 'disabled'
+        if: ${{ env.is_pr != 'true' && env.repo_cache != 'disabled' }}
         continue-on-error: true
         with:
           name: renovate-cache
           path: cache-download
 
       - name: Extract renovate cache
-        if: env.is_pr != 'true' && env.repo_cache != 'disabled'
+        if: ${{ env.is_pr != 'true' && env.repo_cache != 'disabled' }}
         run: |
           if [ ! -d cache-download ]; then
             echo "No cache found."
@@ -187,13 +207,14 @@ jobs:
         run: renovate
 
       - name: Compress renovate cache
-        if: env.is_pr != 'true' && env.dry_run == 'disabled' && env.repo_cache != 'disabled'
+        if: ${{ env.is_pr != 'true' && env.dry_run == 'disabled' && env.repo_cache != 'disabled' }}
         run: tar -czvf renovate_cache.tar.gz -C /tmp/renovate/cache/renovate/repository .
 
       - name: Upload renovate cache
         uses: actions/upload-artifact@v7.0.2
-        if: env.is_pr != 'true' && env.dry_run == 'disabled' && env.repo_cache != 'disabled'
+        if: ${{ env.is_pr != 'true' && env.dry_run == 'disabled' && env.repo_cache != 'disabled' }}
         with:
           name: renovate-cache
           path: renovate_cache.tar.gz
+          if-no-files-found: error
           retention-days: 1

@@ -1,12 +1,12 @@
 # Lint GitHub Actions workflows
 #
 # Reusable workflow that runs jactionlint over the calling repository's
-# workflow and action files with the rule profile the caller selects (default
-# `correctness`), fails on runner labels that GitHub moves to newer
-# images (such as `ubuntu-latest`), fails when its
-# `.github/workflows/actions.lock` is missing an entry, is stale, or records a
-# pin GitHub would reject at run time, and validates its Renovate config. The
-# jactionlint, `gh-actions-lock` and Renovate versions are pinned centrally.
+# workflow and action files with the `pedantic` rule profile, fails on runner
+# labels that GitHub moves to newer images (such as `ubuntu-latest`), fails
+# when its `.github/workflows/actions.lock` is missing an entry, is stale, or
+# records a pin GitHub would reject at run time, and validates its Renovate
+# config. The jactionlint, `gh-actions-lock` and Renovate versions are pinned
+# centrally.
 name: Lint
 
 on:
@@ -16,23 +16,36 @@ on:
     inputs:
       jactionlint-profile:
         description: >-
-          jactionlint rule profile: `correctness` (the checks of actionlint),
-          `default` (adds security and policy rules) or `pedantic` (adds style
-          rules). Mutable runner labels fail with any profile.
+          jactionlint rule profile. `pedantic` is the target for every
+          repository. `correctness` runs the checks of actionlint and `default`
+          adds security and policy rules; both are temporary overrides for
+          callers still migrating, and the input is removed once every caller
+          passes `pedantic`. Mutable runner labels fail with any profile.
         type: string
         required: false
-        default: correctness
+        default: pedantic
 
 permissions:
   contents: read
+
+# Inside a called workflow `github.workflow` is the caller's name, so the
+# `preflight-lint` part keeps this group apart from the caller's own group.
+concurrency:
+  group: ${{ github.workflow }}-preflight-lint-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
 
 jobs:
   lint:
     name: Actionlint
     runs-on: ubuntu-26.04
+    timeout-minutes: 15
     # The default checkout resolves to the PR merge commit or the merge-group
     # ref; any other calling event would silently lint the base branch.
-    if: github.event_name == 'pull_request' || github.event_name == 'merge_group'
+    if: ${{ github.event_name == 'pull_request' || github.event_name == 'merge_group' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v7.0.1
@@ -41,7 +54,7 @@ jobs:
         env:
           # Inputs are empty when this repository runs the workflow on its own
           # `pull_request` and `merge_group` events.
-          PROFILE: ${{ inputs.jactionlint-profile || 'correctness' }}
+          PROFILE: ${{ inputs.jactionlint-profile || 'pedantic' }}
         run: |
           case "${PROFILE}" in
             correctness | default | pedantic) ;;
@@ -64,9 +77,10 @@ jobs:
   lockfile:
     name: Validate actions lockfile
     runs-on: ubuntu-26.04
+    timeout-minutes: 5
     # Same reason as the job above: any other calling event would validate the
     # base branch.
-    if: github.event_name == 'pull_request' || github.event_name == 'merge_group'
+    if: ${{ github.event_name == 'pull_request' || github.event_name == 'merge_group' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v7.0.1
@@ -86,9 +100,10 @@ jobs:
   renovate:
     name: Validate Renovate config
     runs-on: ubuntu-26.04
+    timeout-minutes: 10
     # Same reason as the jobs above: any other calling event would validate the
     # base branch.
-    if: github.event_name == 'pull_request' || github.event_name == 'merge_group'
+    if: ${{ github.event_name == 'pull_request' || github.event_name == 'merge_group' }}
     steps:
       - name: Checkout
         uses: actions/checkout@v7.0.1
@@ -121,11 +136,11 @@ jobs:
 
       # `$/` resolves against this workflow's commit, not the caller's checkout.
       - name: Install Renovate
-        if: steps.config.outputs.found == 'true'
+        if: ${{ steps.config.outputs.found == 'true' }}
         uses: $/.github/actions/install-renovate
 
       # Without arguments the validator checks every config file Renovate would
       # read. `--strict` also fails on config that Renovate would migrate.
       - name: Validate Renovate config
-        if: steps.config.outputs.found == 'true'
+        if: ${{ steps.config.outputs.found == 'true' }}
         run: renovate-config-validator --strict

@@ -17,9 +17,6 @@ name: Dependencies
 
 on:
   pull_request:
-    paths:
-      - ".github/workflows/preflight-dependencies.yml"
-  pull_request_target:
   merge_group:
   workflow_call:
     inputs:
@@ -28,17 +25,28 @@ on:
         type: string
         default: ""
 
-permissions:
-  contents: read
-  pull-requests: write
+permissions: {}
+
+# Inside a called workflow `github.workflow` is the caller's name, so the
+# `preflight-dependencies` part keeps this group apart from the caller's own
+# group.
+concurrency:
+  group: ${{ github.workflow }}-preflight-dependencies-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   review:
     name: Review
     # dependency-review-action requires GitHub Advanced Security on private repos
     # TODO(SRE-620): Remove once GHAS is enabled for private repos
-    if: github.event.repository.visibility == 'public'
+    if: ${{ github.event.repository.visibility == 'public' }}
     runs-on: ubuntu-26.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      # Lets dependency-review-action post its summary comment on a failing
+      # pull request.
+      pull-requests: write
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7.0.1
@@ -46,7 +54,7 @@ jobs:
       - name: Dependency Review
         uses: actions/dependency-review-action@v5.0.1
         with:
-          comment-summary-in-pr: on-failure
+          comment-summary-in-pr: ${{ github.event.pull_request.head.repo.fork && 'never' || 'on-failure' }}
           show-patched-versions: true
           # Empty on this workflow's own triggers and for callers that don't set
           # it; the action treats an empty input as unset, so the check stays

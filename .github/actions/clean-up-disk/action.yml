@@ -44,20 +44,20 @@ runs:
         echo "needed=$needed" >>"$GITHUB_OUTPUT"
 
     - name: Delete preinstalled directories
-      if: steps.free.outputs.needed == 'true'
+      if: ${{ steps.free.outputs.needed == 'true' }}
       shell: bash
       env:
         REQUIRED_FREE_GIB: ${{ inputs.required-free-gib }}
       run: '"$GITHUB_ACTION_PATH/delete.sh"'
 
     - name: Remove unused packages
-      if: steps.free.outputs.needed == 'true'
+      if: ${{ steps.free.outputs.needed == 'true' }}
       shell: bash
       run: |
         sudo apt-get autoremove -y
         sudo apt-get autoclean -y
 
     - name: Check disk space after cleanup
-      if: steps.free.outputs.needed == 'true'
+      if: ${{ steps.free.outputs.needed == 'true' }}
       shell: bash
       run: df -h /
