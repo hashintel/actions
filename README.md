@@ -79,10 +79,10 @@ jobs:
       id-token: write
     uses: hashintel/actions/.github/workflows/housekeeping-dependencies.yml@<commit-sha> # main
     secrets:
-      # The called jobs take it from the `Renovate` environment, which a calling job cannot set.
+      # Only in the `Renovate` environment of the called jobs; a called workflow gets only the secrets its caller names.
       # jactionlint ignore=secrets-outside-env
       CF_ACCESS_CLIENT_SECRET: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
-      # The called jobs take it from the `Renovate` environment, which a calling job cannot set.
+      # Only in the `Renovate` environment of the called jobs; a called workflow gets only the secrets its caller names.
       # jactionlint ignore=secrets-outside-env
       RENOVATE_TOKEN_ENC_KEY: ${{ secrets.RENOVATE_TOKEN_ENC_KEY }}
 ```
