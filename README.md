@@ -59,3 +59,39 @@ jobs:
 ```
 
 The dependency review posts its summary comment on a failing pull request from a branch of the same repository. A fork's pull request gets a read-only token, so it gets no comment, and the findings stay in the job summary. Both workflows still accept `pull_request_target` until every caller has moved.
+
+## Renovate
+
+`housekeeping-dependencies.yml` runs Renovate for the calling repository. Call it on a schedule and on dispatch from `main`:
+
+```yaml
+on:
+  schedule:
+    - cron: "0 3 * * *"
+  workflow_dispatch:
+
+jobs:
+  renovate:
+    name: Dependencies
+    permissions:
+      actions: read
+      contents: read
+      id-token: write
+    uses: hashintel/actions/.github/workflows/housekeeping-dependencies.yml@<commit-sha> # main
+    secrets:
+      # Only in the `Renovate` environment of the called jobs; a called workflow gets only the secrets its caller names.
+      # jactionlint ignore=secrets-outside-env
+      CF_ACCESS_CLIENT_SECRET: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
+      # Only in the `Renovate` environment of the called jobs; a called workflow gets only the secrets its caller names.
+      # jactionlint ignore=secrets-outside-env
+      RENOVATE_TOKEN_ENC_KEY: ${{ secrets.RENOVATE_TOKEN_ENC_KEY }}
+```
+
+The calling repository needs an environment named `Renovate` whose deployment branches are limited to `main`, with no bypass for administrators, so that no job of another ref can read its secrets. It holds:
+
+- The variable `CF_ACCESS_CLIENT_ID` and the secret `CF_ACCESS_CLIENT_SECRET`, the ID and secret of the Cloudflare Access service token for the staging Vault.
+- The secret `RENOVATE_TOKEN_ENC_KEY`, a random passphrase of the repository's own. The token's ciphertext is in the run log, which a public repository shows to everyone, so a passphrase shared between repositories would let a run of one decrypt the token of another. Nobody needs to know it, so generate it straight into the secret:
+
+```bash
+openssl rand -base64 48 | gh secret set RENOVATE_TOKEN_ENC_KEY --repo hashintel/<repository> --env Renovate
+```

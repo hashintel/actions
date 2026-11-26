@@ -8,17 +8,13 @@
 # Renovate job cannot reach Vault to sign fresh App JWTs. The token crosses
 # the job boundary encrypted: GitHub drops masked values from job outputs, so
 # the plaintext could not make the trip anyway, and the ciphertext is useless
-# without `RENOVATE_TOKEN_ENC_KEY`.
+# without `RENOVATE_TOKEN_ENC_KEY`. Both jobs run in the `Renovate` environment
+# of the repository Renovate runs for, which holds the secrets and the
+# Cloudflare Access client ID, and the Renovate job revokes the token once
+# Renovate is done.
 name: Update dependencies
 
 on:
-  pull_request:
-    paths:
-      - ".github/workflows/housekeeping-dependencies.yml"
-      - ".github/actions/install-renovate/**"
-      - ".github/actions/github-app-token/**"
-      - ".github/actions/encrypt-secret/**"
-      - ".github/actions/decrypt-secret/**"
   schedule:
     - cron: "0 3 * * *"
   workflow_dispatch:
@@ -72,18 +68,20 @@ on:
         type: string
         default: disabled
     secrets:
-      CF_ACCESS_STAGE_CLIENT_SECRET:
+      CF_ACCESS_CLIENT_SECRET:
         description: >-
-          Cloudflare Access service token for the staging Vault. A called workflow
-          does not inherit secrets the way it resolves `vars`, so each caller
-          passes this explicitly, and one that omits it fails at dispatch rather
-          than on a Cloudflare rejection.
+          Client secret of the Cloudflare Access service token for the staging
+          Vault, whose client ID is the variable `CF_ACCESS_CLIENT_ID`. Both
+          belong in the caller's `Renovate` environment, which the mint job runs
+          in. A called workflow receives only the secrets its caller names, so
+          each caller names this one, and the mint job gets the environment's
+          value.
         required: true
       RENOVATE_TOKEN_ENC_KEY:
         description: >-
-          Symmetric passphrase that carries the installation token between the
-          two jobs as ciphertext. Same passing rules as above: each caller
-          passes it explicitly, and one that omits it fails at dispatch.
+          Passphrase that encrypts the installation token on its way from the
+          mint job to the Renovate job. It belongs in the caller's `Renovate`
+          environment, and each caller names it like `CF_ACCESS_CLIENT_SECRET`.
         required: true
 
 permissions: {}
@@ -97,6 +95,12 @@ jobs:
     name: Mint token
     runs-on: ubuntu-26.04
     timeout-minutes: 10
+    # Holds both secrets and the client ID. The README requires its deployment
+    # branches to be limited to `main`, so no job of a pull request can read
+    # the secrets.
+    environment:
+      name: Renovate
+      deployment: false
     permissions:
       contents: read
       # Signs the OIDC token that Vault exchanges for the App installation token.
@@ -110,6 +114,21 @@ jobs:
       token-ciphertext: ${{ steps.encrypt.outputs.encrypted_value }}
 
     steps:
+      # A value the environment lacks arrives empty, and would otherwise
+      # surface as a Cloudflare rejection of the Vault login or after minting.
+      - name: Check the Renovate environment
+        env:
+          CF_ACCESS_CLIENT_ID: ${{ vars.CF_ACCESS_CLIENT_ID }}
+          CF_ACCESS_CLIENT_SECRET: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
+          RENOVATE_TOKEN_ENC_KEY: ${{ secrets.RENOVATE_TOKEN_ENC_KEY }}
+        run: |
+          for name in CF_ACCESS_CLIENT_ID CF_ACCESS_CLIENT_SECRET RENOVATE_TOKEN_ENC_KEY; do
+            if [[ -z "${!name}" ]]; then
+              echo "::error title=Renovate environment::${name} is empty; set it in the repository's Renovate environment"
+              exit 1
+            fi
+          done
+
       - name: Get token
         id: app-token
         uses: $/.github/actions/github-app-token
@@ -119,12 +138,8 @@ jobs:
           app-id: "4505109"
           transit-key: github-app-hash-dependencies
           repository: ${{ github.repository }}
-          cf-access-client-id: ${{ vars.CF_ACCESS_STAGE_CLIENT_ID }}
-          # Callers pass this secret explicitly, from a job that calls a
-          # workflow and so cannot have an environment: no `environment:` here
-          # would scope it.
-          # jactionlint ignore=secrets-outside-env
-          cf-access-client-secret: ${{ secrets.CF_ACCESS_STAGE_CLIENT_SECRET }}
+          cf-access-client-id: ${{ vars.CF_ACCESS_CLIENT_ID }}
+          cf-access-client-secret: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
 
       # The token is already masked, and GitHub silently drops masked values
       # from job outputs, so only ciphertext can cross the job boundary.
@@ -133,17 +148,16 @@ jobs:
         uses: $/.github/actions/encrypt-secret
         with:
           value: ${{ steps.app-token.outputs.token }}
-          # Callers pass this secret explicitly, from a job that calls a
-          # workflow and so cannot have an environment: no `environment:` here
-          # would scope it.
-          # jactionlint ignore=secrets-outside-env
           encryption_key: ${{ secrets.RENOVATE_TOKEN_ENC_KEY }}
 
   renovate:
     name: Renovate
     runs-on: ubuntu-26.04
-    timeout-minutes: 5
+    timeout-minutes: 15
     needs: mint-token
+    environment:
+      name: Renovate
+      deployment: false
     # No `id-token` here: compromised dependency code in this job gets at most
     # the hour-long installation token scoped to the calling repository.
     permissions:
@@ -154,8 +168,7 @@ jobs:
       cancel-in-progress: false
       group: renovate
     env:
-      is_pr: ${{ github.event_name == 'pull_request' }}
-      dry_run: ${{ github.event_name == 'pull_request' && 'extract' || inputs.dryRun || 'disabled' }}
+      dry_run: ${{ inputs.dryRun || 'disabled' }}
       repo_cache: ${{ inputs.repoCache || 'enabled' }}
 
     steps:
@@ -165,10 +178,6 @@ jobs:
         uses: $/.github/actions/decrypt-secret
         with:
           encrypted_value: ${{ needs.mint-token.outputs.token-ciphertext }}
-          # Callers pass this secret explicitly, from a job that calls a
-          # workflow and so cannot have an environment: no `environment:` here
-          # would scope it.
-          # jactionlint ignore=secrets-outside-env
           encryption_key: ${{ secrets.RENOVATE_TOKEN_ENC_KEY }}
 
       - name: Install Renovate
@@ -176,14 +185,14 @@ jobs:
 
       - name: Download renovate cache
         uses: dawidd6/action-download-artifact@v28
-        if: ${{ env.is_pr != 'true' && env.repo_cache != 'disabled' }}
-        continue-on-error: true
+        if: ${{ env.repo_cache != 'disabled' }}
         with:
           name: renovate-cache
           path: cache-download
+          if_no_artifact_found: warn
 
       - name: Extract renovate cache
-        if: ${{ env.is_pr != 'true' && env.repo_cache != 'disabled' }}
+        if: ${{ env.repo_cache != 'disabled' }}
         run: |
           if [ ! -d cache-download ]; then
             echo "No cache found."
@@ -207,14 +216,24 @@ jobs:
         run: renovate
 
       - name: Compress renovate cache
-        if: ${{ env.is_pr != 'true' && env.dry_run == 'disabled' && env.repo_cache != 'disabled' }}
+        if: ${{ env.dry_run == 'disabled' && env.repo_cache != 'disabled' }}
         run: tar -czvf renovate_cache.tar.gz -C /tmp/renovate/cache/renovate/repository .
 
       - name: Upload renovate cache
         uses: actions/upload-artifact@v7.0.2
-        if: ${{ env.is_pr != 'true' && env.dry_run == 'disabled' && env.repo_cache != 'disabled' }}
+        if: ${{ env.dry_run == 'disabled' && env.repo_cache != 'disabled' }}
         with:
           name: renovate-cache
           path: renovate_cache.tar.gz
           if-no-files-found: error
-          retention-days: 1
+          # The next scheduled run downloads it at about the same time of day,
+          # so a single day can expire it moments before.
+          retention-days: 2
+
+      # Also when an earlier step fails or the job is cancelled: the token would
+      # otherwise stay valid for the rest of its hour.
+      - name: Revoke token
+        if: ${{ always() && steps.app-token.outcome == 'success' }}
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.value }}
+        run: gh api --method DELETE /installation/token

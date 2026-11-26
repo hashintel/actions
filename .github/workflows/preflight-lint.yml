@@ -115,10 +115,10 @@ jobs:
         id: config
         run: |
           for file in \
-            renovate.json renovate.json5 \
-            .github/renovate.json .github/renovate.json5 \
-            .gitlab/renovate.json .gitlab/renovate.json5 \
-            .renovaterc .renovaterc.json .renovaterc.json5; do
+            renovate.json renovate.jsonc renovate.json5 \
+            .github/renovate.json .github/renovate.jsonc .github/renovate.json5 \
+            .gitlab/renovate.json .gitlab/renovate.jsonc .gitlab/renovate.json5 \
+            .renovaterc .renovaterc.json .renovaterc.jsonc .renovaterc.json5; do
             if [[ -f "${file}" ]]; then
               echo "found=true" >>"${GITHUB_OUTPUT}"
               exit 0
