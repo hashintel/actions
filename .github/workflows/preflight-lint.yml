@@ -28,16 +28,6 @@ on:
         description: Run the Renovate config check. A skipped check satisfies a required status check.
         type: boolean
         default: true
-      jactionlint-profile:
-        description: >-
-          jactionlint rule profile. `pedantic` is the target for every
-          repository. `correctness` runs the checks of actionlint and `default`
-          adds security and policy rules; both are temporary overrides for
-          callers still migrating, and the input is removed once every caller
-          passes `pedantic`. Mutable runner labels fail with any profile.
-        type: string
-        required: false
-        default: pedantic
 
 permissions:
   contents: read
@@ -65,27 +55,7 @@ jobs:
         uses: actions/checkout@v7.0.1
 
       - name: Jactionlint
-        env:
-          # Inputs are empty when this repository runs the workflow on its own
-          # `pull_request` and `merge_group` events.
-          PROFILE: ${{ inputs.jactionlint-profile || 'pedantic' }}
-        run: |
-          case "${PROFILE}" in
-            correctness | default | pedantic) ;;
-            *)
-              echo "::error title=Jactionlint::Unknown jactionlint-profile '${PROFILE}', expected correctness, default or pedantic"
-              exit 1
-              ;;
-          esac
-
-          go run github.com/jdx/jactionlint/v2/cmd/jactionlint@v2.6.0 --profile "${PROFILE}" --strict-exit
-
-      # Only the pedantic profile includes this rule, so it runs on its own for
-      # callers on another profile. A pinned label such as `ubuntu-26.04` keeps
-      # the runner image fixed until the repository changes it; `ubuntu-latest`
-      # moves to a new image when GitHub decides to.
-      - name: Disallow mutable runner labels
-        run: go run github.com/jdx/jactionlint/v2/cmd/jactionlint@v2.6.0 --select mutable-runner-label --strict-exit
+        run: go run github.com/jdx/jactionlint/v2/cmd/jactionlint@v2.6.0 --profile pedantic --strict-exit
 
   lockfile:
     name: Validate actions lockfile

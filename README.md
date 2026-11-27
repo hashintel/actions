@@ -16,21 +16,9 @@ jobs:
     uses: hashintel/actions/.github/workflows/preflight-lint.yml@<commit-sha> # main
 ```
 
-## Workflow lint profile
+## Workflow lint
 
-`preflight-lint.yml` runs jactionlint with the `pedantic` profile, which every repository is moving to. A caller still fixing its findings can pass `jactionlint-profile: correctness` or `default` for the time being:
-
-```yaml
-jobs:
-  lint:
-    uses: hashintel/actions/.github/workflows/preflight-lint.yml@<commit-sha> # main
-    with:
-      jactionlint-profile: correctness
-```
-
-The input is removed once every caller lints with `pedantic`. Mutable runner labels such as `ubuntu-latest` fail with every profile.
-
-Findings of every level fail the check, warnings and info included. To keep a finding that is justified, put an ignore comment for its rule on the line above it, with the reason on a comment line of its own. Text after the rule ID on the ignore line is read as part of the pattern, so the reason cannot go there.
+`preflight-lint.yml` runs jactionlint with the `pedantic` profile. It includes the rule against mutable runner labels such as `ubuntu-latest`. Findings of every level fail the check, warnings and info included. To keep a finding that is justified, put an ignore comment for its rule on the line above it, with the reason on a comment line of its own. Text after the rule ID on the ignore line is read as part of the pattern, so the reason cannot go there.
 
 ```yaml
     # <reason>
