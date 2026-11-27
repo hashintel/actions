@@ -11,10 +11,46 @@
 # without `RENOVATE_TOKEN_ENC_KEY`. Both jobs run in the environment the caller
 # names, which holds the secrets and the Cloudflare Access client ID, and the
 # mint job signs in with the Vault role the caller names. The Renovate job
-# revokes the token once Renovate is done.
+# revokes the token once Renovate is done. On this repository's own schedule and
+# dispatch `inputs` is empty, and it runs as itself: `Renovate` and
+# `ci-hashintel-actions-renovate`.
 name: Update dependencies
 
 on:
+  schedule:
+    - cron: "0 3 * * *"
+  workflow_dispatch:
+    inputs:
+      repoCache:
+        description: "Reset or disable the cache?"
+        type: choice
+        default: enabled
+        options:
+          - enabled
+          - disabled
+          - reset
+      logLevel:
+        description: "Override default log level"
+        type: choice
+        default: info
+        options:
+          - "debug"
+          - "info"
+          - "warn"
+          - "error"
+      overrideSchedule:
+        description: "Override all schedules"
+        type: boolean
+        default: false
+      dryRun:
+        description: "Dry run mode"
+        type: choice
+        default: disabled
+        options:
+          - disabled
+          - extract
+          - lookup
+          - full
   workflow_call:
     inputs:
       vault-role:
@@ -74,7 +110,7 @@ jobs:
     # branches to be limited to `main`, so no job of a pull request can read
     # the secrets.
     environment:
-      name: ${{ inputs.environment }}
+      name: ${{ inputs.environment || 'Renovate' }}
       deployment: false
     permissions:
       contents: read
@@ -93,7 +129,7 @@ jobs:
       # surface as a Cloudflare rejection of the Vault login or after minting.
       - name: Check the environment
         env:
-          ENVIRONMENT: ${{ inputs.environment }}
+          ENVIRONMENT: ${{ inputs.environment || 'Renovate' }}
           VAULT_ADDR: ${{ vars.VAULT_ADDR }}
           CF_ACCESS_CLIENT_ID: ${{ vars.CF_ACCESS_CLIENT_ID }}
           CF_ACCESS_CLIENT_SECRET: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
@@ -111,7 +147,7 @@ jobs:
         uses: $/.github/actions/github-app-token
         with:
           vault-address: ${{ vars.VAULT_ADDR }}
-          vault-role: ${{ inputs.vault-role }}
+          vault-role: ${{ inputs.vault-role || 'ci-hashintel-actions-renovate' }}
           app-id: "4505109"
           transit-key: github-app-hash-dependencies
           repository: ${{ github.repository }}
@@ -133,7 +169,7 @@ jobs:
     timeout-minutes: 15
     needs: mint-token
     environment:
-      name: ${{ inputs.environment }}
+      name: ${{ inputs.environment || 'Renovate' }}
       deployment: false
     # No `id-token` here: compromised dependency code in this job gets at most
     # the hour-long installation token scoped to the calling repository.
@@ -145,8 +181,8 @@ jobs:
       cancel-in-progress: false
       group: renovate
     env:
-      dry_run: ${{ inputs.dryRun }}
-      repo_cache: ${{ inputs.repoCache }}
+      dry_run: ${{ inputs.dryRun || 'disabled' }}
+      repo_cache: ${{ inputs.repoCache || 'enabled' }}
 
     steps:
       # First step, so the plaintext is masked before anything else runs.
@@ -181,7 +217,7 @@ jobs:
 
       - name: Run Renovate
         env:
-          LOG_LEVEL: ${{ inputs.logLevel }}
+          LOG_LEVEL: ${{ inputs.logLevel || 'info' }}
           RENOVATE_TOKEN: ${{ steps.app-token.outputs.value }}
           RENOVATE_FORCE: ${{ inputs.overrideSchedule && '{"schedule":null}' || '' }}
           RENOVATE_DRY_RUN: ${{ env.dry_run == 'disabled' && 'null' || env.dry_run }}

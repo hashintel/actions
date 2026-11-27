@@ -8,7 +8,6 @@ workflows:
         - 'actions/upload-artifact@v7.0.2'
         - 'dawidd6/action-download-artifact@v28'
         - 'hashicorp/vault-action@v4.0.0'
-    '.github/workflows/housekeeping.yml': []
     '.github/workflows/lint.yml':
         - 'actions/checkout@v7.0.1'
         - 'actions/setup-node@v7.1.0'
