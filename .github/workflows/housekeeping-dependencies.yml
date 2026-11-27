@@ -135,7 +135,7 @@ jobs:
         uses: $/.github/actions/github-app-token
         with:
           vault-address: ${{ vars.VAULT_ADDR }}
-          vault-role: ci-hashintel-actions-renovate
+          vault-role: ci-hashintel-renovate
           app-id: "4505109"
           transit-key: github-app-hash-dependencies
           repository: ${{ github.repository }}
