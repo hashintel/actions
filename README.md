@@ -99,7 +99,7 @@ jobs:
       RENOVATE_TOKEN_ENC_KEY: ${{ secrets.RENOVATE_TOKEN_ENC_KEY }}
 ```
 
-The calling repository names its Vault role, `ci-<owner>-<repository>-renovate`, and the environment both jobs run in, `Renovate` by convention. The role accepts only that repository, that environment and `main`. The environment's deployment branches are limited to `main`, with no bypass for administrators, so that no job of another ref can read its secrets. It holds:
+The caller names the Vault role the mint job signs in with and the environment both jobs run in. Limit the environment's deployment branches to `main`, with no bypass for administrators, so that no job of another ref can read its secrets. It holds:
 
 - The variable `VAULT_ADDR`, the address of the staging Vault.
 - The variable `CF_ACCESS_CLIENT_ID` and the secret `CF_ACCESS_CLIENT_SECRET`, the ID and secret of the Cloudflare Access service token for the staging Vault.
