@@ -118,11 +118,12 @@ jobs:
       # surface as a Cloudflare rejection of the Vault login or after minting.
       - name: Check the Renovate environment
         env:
+          VAULT_ADDR: ${{ vars.VAULT_ADDR }}
           CF_ACCESS_CLIENT_ID: ${{ vars.CF_ACCESS_CLIENT_ID }}
           CF_ACCESS_CLIENT_SECRET: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
           RENOVATE_TOKEN_ENC_KEY: ${{ secrets.RENOVATE_TOKEN_ENC_KEY }}
         run: |
-          for name in CF_ACCESS_CLIENT_ID CF_ACCESS_CLIENT_SECRET RENOVATE_TOKEN_ENC_KEY; do
+          for name in VAULT_ADDR CF_ACCESS_CLIENT_ID CF_ACCESS_CLIENT_SECRET RENOVATE_TOKEN_ENC_KEY; do
             if [[ -z "${!name}" ]]; then
               echo "::error title=Renovate environment::${name} is empty; set it in the repository's Renovate environment"
               exit 1
@@ -133,7 +134,7 @@ jobs:
         id: app-token
         uses: $/.github/actions/github-app-token
         with:
-          vault-address: ${{ vars.VAULT_STAGE_ADDR }}
+          vault-address: ${{ vars.VAULT_ADDR }}
           vault-role: ci-renovate
           app-id: "4505109"
           transit-key: github-app-hash-dependencies
