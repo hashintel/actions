@@ -8,10 +8,12 @@
 # Renovate job cannot reach Vault to sign fresh App JWTs. The token crosses
 # the job boundary encrypted: GitHub drops masked values from job outputs, so
 # the plaintext could not make the trip anyway, and the ciphertext is useless
-# without `RENOVATE_TOKEN_ENC_KEY`. Both jobs run in the `Renovate` environment
-# of the repository Renovate runs for, which holds the secrets and the
-# Cloudflare Access client ID, and the Renovate job revokes the token once
-# Renovate is done.
+# without `RENOVATE_TOKEN_ENC_KEY`. Both jobs run in the environment the caller
+# names, which holds the secrets and the Cloudflare Access client ID, and the
+# mint job signs in with the Vault role the caller names. The Renovate job
+# revokes the token once Renovate is done. On this repository's own schedule and
+# dispatch `inputs` is empty, and it runs as itself: `Renovate` and
+# `ci-hashintel-actions-renovate`.
 name: Update dependencies
 
 on:
@@ -51,6 +53,20 @@ on:
           - full
   workflow_call:
     inputs:
+      vault-role:
+        description: >-
+          Vault role the mint job signs in with, named
+          `ci-<owner>-<repository>-renovate`. It accepts only the calling
+          repository, the environment below and `main`.
+        type: string
+        required: true
+      environment:
+        description: >-
+          GitHub environment both jobs run in. Its deployment branches must be
+          limited to `main`, and it holds `VAULT_ADDR`, `CF_ACCESS_CLIENT_ID`
+          and the secrets below.
+        type: string
+        required: true
       repoCache:
         description: "Reset or disable the cache?"
         type: string
@@ -99,7 +115,7 @@ jobs:
     # branches to be limited to `main`, so no job of a pull request can read
     # the secrets.
     environment:
-      name: Renovate
+      name: ${{ inputs.environment || 'Renovate' }}
       deployment: false
     permissions:
       contents: read
@@ -116,8 +132,9 @@ jobs:
     steps:
       # A value the environment lacks arrives empty, and would otherwise
       # surface as a Cloudflare rejection of the Vault login or after minting.
-      - name: Check the Renovate environment
+      - name: Check the environment
         env:
+          ENVIRONMENT: ${{ inputs.environment || 'Renovate' }}
           VAULT_ADDR: ${{ vars.VAULT_ADDR }}
           CF_ACCESS_CLIENT_ID: ${{ vars.CF_ACCESS_CLIENT_ID }}
           CF_ACCESS_CLIENT_SECRET: ${{ secrets.CF_ACCESS_CLIENT_SECRET }}
@@ -125,7 +142,7 @@ jobs:
         run: |
           for name in VAULT_ADDR CF_ACCESS_CLIENT_ID CF_ACCESS_CLIENT_SECRET RENOVATE_TOKEN_ENC_KEY; do
             if [[ -z "${!name}" ]]; then
-              echo "::error title=Renovate environment::${name} is empty; set it in the repository's Renovate environment"
+              echo "::error title=Renovate environment::${name} is empty; set it in the repository's ${ENVIRONMENT} environment"
               exit 1
             fi
           done
@@ -135,7 +152,7 @@ jobs:
         uses: $/.github/actions/github-app-token
         with:
           vault-address: ${{ vars.VAULT_ADDR }}
-          vault-role: ci-hashintel-actions-renovate
+          vault-role: ${{ inputs.vault-role || 'ci-hashintel-actions-renovate' }}
           app-id: "4505109"
           transit-key: github-app-hash-dependencies
           repository: ${{ github.repository }}
@@ -157,7 +174,7 @@ jobs:
     timeout-minutes: 15
     needs: mint-token
     environment:
-      name: Renovate
+      name: ${{ inputs.environment || 'Renovate' }}
       deployment: false
     # No `id-token` here: compromised dependency code in this job gets at most
     # the hour-long installation token scoped to the calling repository.
