@@ -20,6 +20,12 @@ on:
   merge_group:
   workflow_call:
     inputs:
+      # On this workflow's own triggers `inputs` is empty, and null equals false in an expression, so
+      # a job compares `toJSON(...)` with 'false' and runs unless a caller passes false.
+      run-dependency-review:
+        description: Run the dependency review check. A skipped check satisfies a required status check.
+        type: boolean
+        default: true
       allow-ghsas:
         description: 'Comma-separated list of GitHub Advisory IDs to ignore (e.g. "GHSA-abcd-1234-5679, GHSA-efgh-1234-5679")'
         type: string
@@ -39,7 +45,7 @@ jobs:
     name: Review
     # dependency-review-action requires GitHub Advanced Security on private repos
     # TODO(SRE-620): Remove once GHAS is enabled for private repos
-    if: ${{ github.event.repository.visibility == 'public' }}
+    if: ${{ toJSON(inputs.run-dependency-review) != 'false' && github.event.repository.visibility == 'public' }}
     runs-on: ubuntu-26.04
     timeout-minutes: 10
     permissions:

@@ -60,6 +60,27 @@ jobs:
 
 The dependency review posts its summary comment on a failing pull request from a branch of the same repository. A fork's pull request gets a read-only token, so it gets no comment, and the findings stay in the job summary. Both workflows still accept `pull_request_target` until every caller has moved.
 
+## Skipping a check
+
+Each job of the `preflight-` workflows has a boolean input that runs it, `true` by default. A caller that passes `false` skips the job. GitHub counts a skipped job as passed, so a ruleset that requires the check still lets the pull request merge:
+
+```yaml
+jobs:
+  pr-title:
+    uses: hashintel/actions/.github/workflows/preflight-pr-title.yml@<commit-sha> # main
+    with:
+      run-linear-issue-id: false
+```
+
+| Workflow | Input | Check |
+| --- | --- | --- |
+| `preflight-dependencies.yml` | `run-dependency-review` | Review |
+| `preflight-lint.yml` | `run-actionlint` | Actionlint |
+| `preflight-lint.yml` | `run-actions-lockfile` | Validate actions lockfile |
+| `preflight-lint.yml` | `run-renovate-config` | Validate Renovate config |
+| `preflight-pr-title.yml` | `run-linear-issue-id` | Linear Issue ID |
+| `preflight-todo-comments.yml` | `run-todo-comments` | Scan |
+
 ## Renovate
 
 `housekeeping-dependencies.yml` runs Renovate for the calling repository. Call it on a schedule and on dispatch from `main`:

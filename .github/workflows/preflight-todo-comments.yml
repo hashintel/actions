@@ -11,6 +11,13 @@ on:
     types: [opened, synchronize, reopened, edited]
   merge_group:
   workflow_call:
+    inputs:
+      # On this workflow's own triggers `inputs` is empty, and null equals false in an expression, so
+      # a job compares `toJSON(...)` with 'false' and runs unless a caller passes false.
+      run-todo-comments:
+        description: Run the todo comments check. A skipped check satisfies a required status check.
+        type: boolean
+        default: true
 
 permissions:
   contents: read
@@ -31,7 +38,7 @@ jobs:
     name: Scan
     runs-on: ubuntu-26.04
     timeout-minutes: 3
-    if: ${{ github.event_name == 'pull_request' }}
+    if: ${{ toJSON(inputs.run-todo-comments) != 'false' && github.event_name == 'pull_request' }}
     steps:
       - name: Checkout PR head
         uses: actions/checkout@v7.0.1

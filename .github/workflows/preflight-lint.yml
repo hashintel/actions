@@ -14,6 +14,20 @@ on:
   merge_group:
   workflow_call:
     inputs:
+      # On this workflow's own triggers `inputs` is empty, and null equals false in an expression, so
+      # a job compares `toJSON(...)` with 'false' and runs unless a caller passes false.
+      run-actionlint:
+        description: Run the Actionlint check. A skipped check satisfies a required status check.
+        type: boolean
+        default: true
+      run-actions-lockfile:
+        description: Run the actions lockfile check. A skipped check satisfies a required status check.
+        type: boolean
+        default: true
+      run-renovate-config:
+        description: Run the Renovate config check. A skipped check satisfies a required status check.
+        type: boolean
+        default: true
       jactionlint-profile:
         description: >-
           jactionlint rule profile. `pedantic` is the target for every
@@ -45,7 +59,7 @@ jobs:
     timeout-minutes: 15
     # The default checkout resolves to the PR merge commit or the merge-group
     # ref; any other calling event would silently lint the base branch.
-    if: ${{ github.event_name == 'pull_request' || github.event_name == 'merge_group' }}
+    if: ${{ toJSON(inputs.run-actionlint) != 'false' && (github.event_name == 'pull_request' || github.event_name == 'merge_group') }}
     steps:
       - name: Checkout
         uses: actions/checkout@v7.0.1
@@ -79,7 +93,7 @@ jobs:
     timeout-minutes: 5
     # Same reason as the job above: any other calling event would validate the
     # base branch.
-    if: ${{ github.event_name == 'pull_request' || github.event_name == 'merge_group' }}
+    if: ${{ toJSON(inputs.run-actions-lockfile) != 'false' && (github.event_name == 'pull_request' || github.event_name == 'merge_group') }}
     steps:
       - name: Checkout
         uses: actions/checkout@v7.0.1
@@ -102,7 +116,7 @@ jobs:
     timeout-minutes: 10
     # Same reason as the jobs above: any other calling event would validate the
     # base branch.
-    if: ${{ github.event_name == 'pull_request' || github.event_name == 'merge_group' }}
+    if: ${{ toJSON(inputs.run-renovate-config) != 'false' && (github.event_name == 'pull_request' || github.event_name == 'merge_group') }}
     steps:
       - name: Checkout
         uses: actions/checkout@v7.0.1

@@ -15,6 +15,13 @@ on:
     types: [opened, synchronize, reopened, edited]
   merge_group:
   workflow_call:
+    inputs:
+      # On this workflow's own triggers `inputs` is empty, and null equals false in an expression, so
+      # a job compares `toJSON(...)` with 'false' and runs unless a caller passes false.
+      run-linear-issue-id:
+        description: Run the Linear issue ID check. A skipped check satisfies a required status check.
+        type: boolean
+        default: true
 
 permissions:
   contents: read
@@ -36,7 +43,7 @@ jobs:
     timeout-minutes: 5
     # Accepts `pull_request_target` until every caller triggers on `pull_request`:
     # inside a called workflow `github.event_name` is the caller's event.
-    if: ${{ (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') && !contains(fromJSON('["dependabot[bot]", "hash-dependencies[bot]", "hash-release[bot]"]'), github.event.pull_request.user.login) }}
+    if: ${{ toJSON(inputs.run-linear-issue-id) != 'false' && (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') && !contains(fromJSON('["dependabot[bot]", "hash-dependencies[bot]", "hash-release[bot]"]'), github.event.pull_request.user.login) }}
     steps:
       - name: Validate PR title contains Linear issue ID
         env:
