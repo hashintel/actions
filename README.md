@@ -87,6 +87,9 @@ jobs:
       contents: read
       id-token: write
     uses: hashintel/actions/.github/workflows/housekeeping-dependencies.yml@<commit-sha> # main
+    with:
+      vault-role: ci-hashintel-<repository>-renovate
+      environment: Renovate
     secrets:
       # Only in the `Renovate` environment of the called jobs; a called workflow gets only the secrets its caller names.
       # jactionlint ignore=secrets-outside-env
@@ -96,7 +99,7 @@ jobs:
       RENOVATE_TOKEN_ENC_KEY: ${{ secrets.RENOVATE_TOKEN_ENC_KEY }}
 ```
 
-The calling repository needs an environment named `Renovate` whose deployment branches are limited to `main`, with no bypass for administrators, so that no job of another ref can read its secrets. It holds:
+The caller names the Vault role the mint job signs in with and the environment both jobs run in. Limit the environment's deployment branches to `main`, with no bypass for administrators, so that no job of another ref can read its secrets. It holds:
 
 - The variable `VAULT_ADDR`, the address of the staging Vault.
 - The variable `CF_ACCESS_CLIENT_ID` and the secret `CF_ACCESS_CLIENT_SECRET`, the ID and secret of the Cloudflare Access service token for the staging Vault.
